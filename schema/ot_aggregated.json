@@ -1,3 +1,64 @@
+Unaggregated:
+❯ head -1 E-MTAB-9372-expression-data-tpms.jsonl | jq '.'
 {
-  
+  "geneProductId": "ENSG00000000003",
+  "expression": [
+    {
+      "assayGroupId": "g1",
+      "min": 46,
+      "q1": 47,
+      "q2": 47,
+      "q3": 47,
+      "max": 48
+    },
+    {
+      "assayGroupId": "g2",
+      "min": 29,
+      "q1": 32,
+      "q2": 33,
+      "q3": 33,
+      "max": 35
+    },
+    {
+      "assayGroupId": "g3",
+      "min": 40,
+      "q1": 42,
+      "q2": 43,
+      "q3": 46,
+      "max": 46
+    },
+    {
+      "assayGroupId": "g4",
+      "min": 34,
+      "q1": 39,
+      "q2": 41,
+      "q3": 45,
+      "max": 54
+    },
+    {
+      "assayGroupId": "g5",
+      "min": 27,
+      "q1": 32,
+      "q2": 39,
+      "q3": 48,
+      "max": 59
+    },
+    {
+      "assayGroupId": "g6",
+      "min": 71,
+      "q1": 88,
+      "q2": 91,
+      "q3": 95,
+      "max": 100
+    },
+    {
+      "assayGroupId": "g7",
+      "min": 46,
+      "q1": 55,
+      "q2": 56,
+      "q3": 58,
+      "max": 69
+    }
+  ],
+  "unit": "tpms"
 }
