@@ -1,0 +1,38 @@
+Study metadata:
+{
+  "experimentId": "E-MTAB-4644",
+  "experimentType": "rnaseq_mrna_baseline",
+  "species": "Mus musculus",
+  "speciesOntURI": "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+  "pubmedIds": [
+    "22955982",
+    "22955987"
+  ],
+  "provider": "Jose; Gonzalez; Anne-Maud; Ferreira; Jen; Harrow; Roderic; Guigo; Alexandre; Reymond",
+  "experimentalDesigns": [
+    {
+      "assayGroupId": "g1",
+      "assayId": "ERR1361600",
+      "assayGroup": "brain",
+      "age": "8 week",
+      "organismPart": "brain",
+      "organismPartOntURI": "http://purl.obolibrary.org/obo/UBERON_0000955",
+      "sex": "male",
+      "sexOntURI": "http://purl.obolibrary.org/obo/PATO_0000384",
+      "strain": "C57BL/6",
+      "strainOntURI": "http://www.ebi.ac.uk/efo/EFO_0004472"
+    },
+    {
+      "assayGroupId": "g2",
+      "assayId": "ERR1361601",
+      "assayGroup": "heart",
+      "age": "8 week",
+      "organismPart": "heart",
+      "organismPartOntURI": "http://purl.obolibrary.org/obo/UBERON_0000948",
+      "sex": "male",
+      "sexOntURI": "http://purl.obolibrary.org/obo/PATO_0000384",
+      "strain": "C57BL/6",
+      "strainOntURI": "http://www.ebi.ac.uk/efo/EFO_0004472"
+    }
+  ]
+}
