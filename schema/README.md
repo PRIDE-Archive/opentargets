@@ -4,9 +4,9 @@
 ## Aggregated view 
 Aggregated protein abundance of each protein across samples within a sample group. Fields comprise
 
-**"geneProductId"**: <string> Ensembl gene accessions ex. "ENSG00000000003",
+**"geneProductId"**: \<string\>	- Ensembl gene accessions ex. "ENSG00000000003",
 
-**"expression"**: <list>      containing dictionaries quantile normalised protein abundaces in each group
+**"expression"**: \<list\>			- containing dictionaries quantile normalised protein abundaces in each group
 
               [      
                 {
@@ -22,11 +22,11 @@ Aggregated protein abundance of each protein across samples within a sample grou
 ## Sample view
 Protein abundances expressed for each protein in each sample. Fields comprise-
 
-  **"geneProductId"**: <string> - Ensembl gene accessions ex. "ENSG00000000003",
+  **"geneProductId"**: \<string\> - Ensembl gene accessions ex. "ENSG00000000003",
   
-  **"unit"**: <string>          - unit of protein expression ex. "ppb",
+  **"unit"**: \<string\>          - unit of protein expression ex. "ppb",
   
-  **"expression"**: <list>      - containing dictionaries of sample names & protein abundances
+  **"expression"**: \<list\>      - containing dictionaries of sample names & protein abundances
   
               [
                 {
@@ -38,23 +38,23 @@ Protein abundances expressed for each protein in each sample. Fields comprise-
 ## Metadata
 Meatadata of samples. Fields comprise-
 
-  **"experimentId"**: <string>   - PRIDE dataset accession  ex. "PXD012345",
+  **"experimentId"**: \<string\>   - PRIDE dataset accession  ex. "PXD012345",
   
-  **"experimentType"**: <string> - type of proteomics study ex. "proteomics_baseline" or "proteomics_differential",
+  **"experimentType"**: \<string\> - type of proteomics study ex. "proteomics_baseline" or "proteomics_differential",
   
-  **"species"**: <string>        - CV term taxonomic name   ex. "Mus musculus" or "Homo sapiens",
+  **"species"**: \<string\>        - CV term taxonomic name   ex. "Mus musculus" or "Homo sapiens",
   
-  **"speciesOntURI"**: <string>  - NCBI URL of species      ex. "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+  **"speciesOntURI"**: \<string\>  - NCBI URL of species      ex. "http://purl.obolibrary.org/obo/NCBITaxon_10090",
   
-  **"pubmedIds"**: <list>        - list of PubMed ids <integer> listing this study
+  **"pubmedIds"**: \<list\>        - list of PubMed ids <integer> listing this study
   
                               [
                                 "22955982",
                                 "22955987"
                               ],
-  **"provider"**: <string>           - semicolon (;) delimited names of anuthors ex. "Jose; Gonzalez; Anne-Maud",
+  **"provider"**: \<string\>           - semicolon (;) delimited names of anuthors ex. "Jose; Gonzalez; Anne-Maud",
   
-  **"experimentalDesigns"**: <list>  - list of dictionaries containing metadata of each assay group
+  **"experimentalDesigns"**: \<list\>  - list of dictionaries containing metadata of each assay group
   
                 [
                   {
