@@ -1,5 +1,3 @@
-Unaggregated:
-❯ head -1 E-MTAB-9372-expression-data-tpms.jsonl | jq '.'
 {
   "geneProductId": "ENSG00000000003",
   "expression": [
