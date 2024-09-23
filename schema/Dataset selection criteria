@@ -1,0 +1,35 @@
+**Criteria for selecting datasets to be reanalysed**
+
+PRIDE has many datasets for each biological condition of interest and therefore a selection strategy must be employed to pick the most ‘intersting’ or ‘useful’ good quality datasets that are suitable for reanalysis.
+
+To select proteomics datasets for reanalysis, we propose the following criteria.
+
+First priorotise datasets related to diseases suggested by industry partners as well as represented by RNAseq experiments in Open Targets.
+Query PRIDE and ProteomeCentral databases with disease names and 'Homo sapiens' as keywords. 
+Each dataset will be checked, in their respective publications, for below attributes that are considered important or desireable for data reanalysis. 
+Each attribute is given a weight to denote their importance. The weights are from 1 to 3, negative weights are added to denote undesirability.
+ [1]: not very important, but useful; 
+ [2]: important, improves data quality;
+ [3]: very important, will affect data quality.
+
+The attributes included in evaluating a dataset for selectability for reanalysis are:
+(a.) Number of raw files [3]: Importance is given to datasets that have a large number of samples/MS runs. An arbitrary number of 50 raw files are deemed as 'large dataset’, any dataset with 50 or more raw files are given 3 points.
+(b.) Publication year    [1]: Datasets that are more recent are given importance. Datasets published/made public within the last 5 years are given 1 point.
+(c.) Sample metadata     [3]: Sample metadata links sample characteristics like age, gender, treatment, clinical diagnosis etc. with raw MS files. These information are present in manuscript tables or supplementary tables. If metadata is not available, it can be obtained by contacting authors of the respective manuscript. This sample metadata information is important and is given 3 points.
+(d.) Clear diagnosis     [3]: The samples should have clear clinical diagnosis. This is given 3 points.
+(e.) Confounders         [-3]: Confounders such as other existing medical conditions other than the one investigated for example undergoing medical treatment or time course or induced perturbations or microbe interactions, etc. The samples should not have any such confounders which could influence data quality. Any dataset with such confounders is given negative value of -3. 
+(f.) Tissue              [1]: Samples should come from tissues, not from fluid samples or cell lines or cell cultures. Although not critical for data analysis, we have in our previous analysis looked at tissue samples only. This is given 1 point.
+(g.) Serum/plasma/fuids  [-3]: Samples should not come from serum or plasma or fluid samples like CSF, saliva, urine, etc. This is given -3 point.
+(h.) Cell lines/cells    [-3]: Samples should not come from cell lines or cell cultures. This is given negative -3 point.
+(i.) Biological replicates [3]: Samples from more than 1 individual is critical for statistical analysis, therfore biological replicates are important. This is given 3 points.
+(j.) Technical replicates [3]: Samples should have technical replicates and is critical for statistical analysis. This is given 3 points.
+(k.) Thermo Scientific Instruments [1]: Instruments should come from Thermo Fischer Scientific instruments. Our pipeline is developed for Thermo instruments. This attribute is not very important for data analysis and is given 1 point. 
+(l.) DDA                  [1]: Data should come from Data Dependent Aquisition, our pipeline is developed for DDA. This attribute is not very important for data analysis and is given 1 point. 
+(m.) Label-free           [1]: Data should come from label-free experiments, our pipeline is developed for label-free. This attribute is not very important for data analysis and is given 1 point. 
+(n.) Fractionated         [2]: Fractionated datasets are important and are given 2 points.
+(o.) PTM-enriched         [-3]: Datasets should not be enriched for post-translational modifications. This is given negative -3 points.
+(p.) Knock-out            [-3]: Datasets should not come from knock-out experiements (perturbations). This is given negative -3 points.
+(q.) Enriched or immuno-pull downs [-3]: Datasets should not come from experiments enriched for certain proteins from immuno pulldown assays. This is given negative -3 points.
+(r.) Multiomics           [3]: It is desirable if datasets have samples analysed for both proteomics and transcriptomics (RNaseq) experiments. This attribute is given 3 points.
+
+A threshold of selection score should be determined to consider which datasets to consider for downstream reanalysis. 
