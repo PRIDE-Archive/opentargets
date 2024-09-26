@@ -20,22 +20,20 @@ The attributes included in evaluating a dataset for selectability for reanalysis
 - **(d)** Clear diagnosis [**3**]: The samples should have clear clinical diagnosis.
 - **(e)** Confounders [**-3**]: Confounders such as other existing medical conditions other than the one investigated, for example, undergoing medical treatment or time course or induced perturbations or microbe interactions, etc. The samples should not have any such confounders that could influence data quality.
 - **(f)** Tissue [**1**]: Samples should come from tissues, not from fluid samples or cell lines or cell cultures. Although not critical for data analysis, we have in our previous analysis looked at tissue samples only.
-- **(**g**) Serum/plasma/fuids  [**-3**]: Samples should not come from serum or plasma or fluid samples like CSF, saliva, urine, etc. 
-_//TODO - We need to discuss this point._
+- **(**g**) Serum/plasma/fuids: Samples coult from serum or plasma or fluid samples like CSF, saliva, urine, for differential expression datasets:
+   - Differential expression [**2**]: We can have differential expression datasets using fluids for different diseases.
+   - Baseline expression [**-3**]: We are not accepting fluids for baseline expression.  
 - **(h)** Cell lines/cells [**-3**]: Samples should not come from cell lines or cell cultures.
 - **(i)** Biological replicates [**3**]: Samples from more than 1 individual are critical for statistical analysis, therefore, biological replicates are important. 
 - **(j)** Technical replicates [**3**]: Samples should have technical replicates and is critical for statistical analysis. 
-- **(l)** Aquisition method: 
-   - DDA [**1**]: Data should come from DDA experiments. 
-   - DIA [**2**]: Data should come from DIA experiments. DIA experiments are more reproducible and have better quantification than DDA.
-- **(m)** Analytical method: 
+- **(k)** Analytical method: 
    - Label-free [**1**]: Data should come from label-free experiments.
    - TMT/iTRAQ [**2**]: Data should come from TMT or iTRAQ experiments. These experiments have better quantification than label-free experiments.
    - DIA Label-free [**3**]: Data should come from DIA label-free experiments. These experiments have better quantification than DDA label-free experiments. 
-- **(n)** Fractionated [**2**]: Fractionated datasets have in general more deep coverage than non-fractionated experiments. 
-- (**o**) PTM-enriched [**-3**]: Datasets should not be enriched for post-translational modifications. 
-- **(p)** Knock-out [**-3**]: Datasets should not come from knock-out experiements (perturbations). 
-- (**q**) Enriched or immuno-pull downs [**-3**]: Datasets should not come from experiments enriched for certain proteins from immuno pulldown assays. 
-- **(r)** Multiomics [**3**]: It is desirable if datasets have samples analysed for both proteomics and transcriptomics (RNaseq) experiments. 
+- **(l)** Fractionated [**2**]: Fractionated datasets have in general more deep coverage than non-fractionated experiments. 
+- (**m**) PTM-enriched [**-3**]: Datasets should not be enriched for post-translational modifications. 
+- **(n)** Knock-out [**-3**]: Datasets should not come from knock-out experiements (perturbations). 
+- (**o**) Enriched or immuno-pull downs [**-3**]: Datasets should not come from experiments enriched for certain proteins from immuno pulldown assays. 
+- **(p)** Multiomics [**3**]: It is desirable if datasets have samples analysed for both proteomics and transcriptomics (RNaseq) experiments. 
 
 A threshold of selection score should be determined to consider which datasets to consider for downstream reanalysis. 
