@@ -27,8 +27,8 @@ The attributes included in evaluating a dataset for selectability for reanalysis
 - **(i)** Biological replicates [**3**]: Samples from more than 1 individual are critical for statistical analysis, therefore, biological replicates are important. 
 - **(j)** Technical replicates [**3**]: Samples should have technical replicates and is critical for statistical analysis. 
 - **(k)** Analytical method: 
-   - Label-free [**1**]: Data should come from label-free experiments.
-   - TMT/iTRAQ [**2**]: Data should come from TMT or iTRAQ experiments. These experiments have better quantification than label-free experiments.
+   - DDA Label-free [**1**]: Data should come from label-free experiments.
+   - DDA Label methods [**2**]: Data should come from TMT/iTRAQ/SILAC experiments. These experiments have better quantification than label-free experiments.
    - DIA Label-free [**3**]: Data should come from DIA label-free experiments. These experiments have better quantification than DDA label-free experiments. 
 - **(l)** Fractionated [**2**]: Fractionated datasets have in general more deep coverage than non-fractionated experiments. 
 - (**m**) PTM-enriched [**-3**]: Datasets should not be enriched for post-translational modifications. 
