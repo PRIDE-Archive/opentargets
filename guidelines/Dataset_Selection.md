@@ -15,7 +15,7 @@ To select proteomics datasets for reanalysis, we propose the following criteria:
 The attributes included in evaluating a dataset for selectability for reanalysis are:
 
 - **(a)** Number of raw files [**3**]: Importance is given to datasets that have a large number of samples/MS runs. An arbitrary number of 50 raw files are deemed as 'large dataset,’ any dataset with 50 or more raw files is given 3 points.
-- **(b)** Publication year [**1**]: Datasets that are more recent are given importance. Datasets published/made public within the last 5 years are given 1 point.
+- **(b)** Submission date [**1**]: Datasets that are more recent are given importance. Datasets submitted within the last 5 years are given 1 point.
 - **(c)** Sample metadata [**3**]: Sample metadata links sample characteristics like age, gender, treatment, clinical diagnosis, etc. with raw MS files. This information is present in manuscript tables or supplementary tables. If metadata is not available, it can be obtained by contacting authors of the respective manuscript. 
 - **(d)** Clear diagnosis [**3**]: The samples should have clear clinical diagnosis.
 - **(e)** Confounders [**-3**]: Confounders such as other existing medical conditions other than the one investigated, for example, undergoing medical treatment or time course or induced perturbations or microbe interactions, etc. The samples should not have any such confounders that could influence data quality.
