@@ -16,11 +16,11 @@ The attributes included in evaluating a dataset for selectability for reanalysis
 
 - **(a)** Number of raw files [**3**]: Importance is given to datasets that have a large number of samples/MS runs. An arbitrary number of 50 raw files are deemed as 'large dataset,’ any dataset with 50 or more raw files is given 3 points.
 - **(b)** Submission date [**1**]: Datasets that are more recent are given importance. Datasets submitted within the last 5 years are given 1 point.
-- **(c)** Sample metadata [**3**]: Sample metadata links sample characteristics like age, gender, treatment, clinical diagnosis, etc. with raw MS files. This information is present in manuscript tables or supplementary tables. If metadata is not available, it can be obtained by contacting authors of the respective manuscript. 
+- **(c)** Sample metadata [**3**]: Sample metadata links sample characteristics like age, gender, treatment, clinical diagnosis, etc. with raw MS files. This information is present in manuscript tables or supplementary tables or submitted to PRIDE/ProteomeCentral during dataset submission. If metadata is not available, it can be obtained by contacting authors of the respective manuscript. 
 - **(d)** Clear diagnosis [**3**]: The samples should have clear clinical diagnosis.
 - **(e)** Confounders [**-3**]: Confounders such as other existing medical conditions other than the one investigated, for example, undergoing medical treatment or time course or induced perturbations or microbe interactions, etc. The samples should not have any such confounders that could influence data quality.
 - **(f)** Tissue [**1**]: Samples should come from tissues, not from fluid samples or cell lines or cell cultures. Although not critical for data analysis, we have in our previous analysis looked at tissue samples only.
-- **(g)** Serum/plasma/fuids: Samples coult from serum or plasma or fluid samples like CSF, saliva, urine, for differential expression datasets:
+- **(g)** Serum/plasma/fuids: Samples collected from serum or plasma or fluid samples like CSF, saliva, urine, for datasets with:
    - Differential expression [**2**]: We can have differential expression datasets using fluids for different diseases.
    - Baseline expression [**-3**]: We are not accepting fluids for baseline expression.  
 - **(h)** Cell lines/cells [**-3**]: Samples should not come from cell lines or cell cultures.
