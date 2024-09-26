@@ -1,4 +1,4 @@
-### Criteria for selecting datasets to be reanalysed**
+### Criteria for selecting datasets to be reanalysed
 
 PRIDE has many datasets for each biological condition of interest, and therefore a selection strategy must be employed to pick the most ‘interesting’ or ‘useful’ good quality datasets that are suitable for reanalysis.
 
