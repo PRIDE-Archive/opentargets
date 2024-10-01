@@ -34,6 +34,10 @@ The attributes included in evaluating a dataset for selectability for reanalysis
 - (**m**) PTM-enriched [**-3**]: Datasets should not be enriched for post-translational modifications. 
 - **(n)** Knock-out [**-3**]: Datasets should not come from knock-out experiements (perturbations). 
 - (**o**) Enriched or immuno-pull downs [**-3**]: Datasets should not come from experiments enriched for certain proteins from immuno pulldown assays. 
-- **(p)** Multiomics [**3**]: It is desirable if datasets have samples analysed for both proteomics and transcriptomics (RNaseq) experiments. 
+- **(p)** Multiomics [**3**]: It is desirable if datasets have samples analysed for both proteomics and transcriptomics (RNAseq) experiments. 
 
 A threshold of selection score should be determined to consider which datasets to consider for downstream reanalysis. 
+
+### Exisiting dataset curation
+
+https://docs.google.com/spreadsheets/d/1vkXsz2m1qLkzWzt6MgQYZEGgUPg3-QjxgWK6XLKPCFc/edit?gid=0#gid=0
