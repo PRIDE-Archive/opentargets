@@ -22,10 +22,10 @@ from adjustText import adjust_text
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
 
-# set if differential expression or not! [0 or 1]
+# set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
 diffExp = 1
-# set testing or not! [0 or 1]
+# set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
 
