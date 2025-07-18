@@ -17,13 +17,17 @@ from rpy2.robjects.conversion import localconverter
 from rpy2.robjects import pandas2ri
 import rpy2.robjects as ro
 import umap.umap_ as umap
+from adjustText import adjust_text
 
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
 
-# set if differential expression or not!
+# set if differential expression or not! [0 or 1]
+# 0 for baseline and 1 for differential analysis
 diffExp = 1
-
+# set testing or not! [0 or 1]
+# 0 for full run, 1 for testing (first 50 entries)
+test = 0
 
 def checkType():
     if diffExp == "":
@@ -32,8 +36,15 @@ def checkType():
               "diffExp = 0 for baseline expression analysis")
         sys.exit("Exiting: 'diffExp' not set.")
 
-
+def testing():
+    if test == "":
+        print("Mention if Test run or Full analysis\n"
+              "test = 1 for a test run using first 50 entries\n"
+              "test = 0 for a full run.")
+        sys.exit("Exiting: 'test' not set.")
 checkType()
+testing()
+
 
 path = "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/"
 
@@ -102,7 +113,7 @@ metatable = {
                searchDatabase, contaminantDatabase, entrapmentDatabase,
                analysisSoftware, operatingSystem]
 }
-metarownames = ['PRIDE dataset identifier:', 'PRIDE dataset URL:', 'Dataset submitters:', 'E-mail:', 'PubMed ID:',
+metarownames = ['Dataset identifier:', 'Dataset URL:', 'Dataset submitters:', 'E-mail:', 'PubMed ID:',
                 'Experiment type:', 'Quantification method:', 'Search database:', 'Contaminant database:',
                 'Entrapment database:', 'Analysis software:', 'Operating system:']
 
@@ -164,7 +175,8 @@ iBAQ_cols = Postprocessed.columns[
 Postprocessed[iBAQ_cols] = Postprocessed[iBAQ_cols].div(Postprocessed[iBAQ_cols].sum(axis=0), axis=1) * 1000000000
 
 # For testing
-Postprocessed = Postprocessed.head(50)
+if test == 1:
+    Postprocessed = Postprocessed.head(50)
 
 
 # Map UniProt protein IDs to Ensembl Gene IDs
@@ -248,9 +260,10 @@ ax6.table(cellText=mapping_table.values,
           colLabels=mapping_table.columns,
           loc='center',
           cellLoc='left')
-maptable_caption = "Description of source and sample names"
-maptab.text(0.5, 0.02, maptable_caption,
-            wrap=True, ha='center', va='bottom', fontsize=10)
+#maptable_caption = "Description of source and sample names"
+#maptab.text(0.5, 0.02, maptable_caption,
+#            wrap=True, ha='center', va='bottom', fontsize=10)
+plt.tight_layout(rect=[0, 0.05, 1, 0.95])
 
 ######################
 # Create summary table
@@ -364,7 +377,7 @@ if diffExp != 1:
     postprocessed_json = convertToJSON(Postprocessed_iBAQ_long)
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
-
+    print("Quant files written.")
 ##############################################
 # Figure 2. Protein groups commonly identified across samples
 # count number of proteins identified across all samples
@@ -553,6 +566,7 @@ if diffExp == 1:
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
 
+    print("Performing Limma batch correction")
     # Run removeBatchEffect
     ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
 
@@ -588,6 +602,7 @@ if diffExp == 1:
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
 
+    print("Quant files written.")
 
     # transpose to have rows as samples and columns as features (genes, peptides, etc.).
     expr_limma_trans = expr_limma_corrected.T
@@ -595,6 +610,7 @@ if diffExp == 1:
     expr_limma_trans[np.isnan(expr_limma_trans)] = 0
 
     ## UMAP
+    print("Performing UMAP.")
     # Initialize UMAP, Fit and transform
     umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
 
@@ -643,6 +659,7 @@ if diffExp == 1:
     #plt.show()
     '''
     ## Differential expression
+    print("Performing differential expression analysis.")
     # doing the opposite of renaming columns done before
     expr_limma_sample_group = pd.DataFrame(expr_limma_corrected,
                                            index=expr_limma_corrected.columns)
@@ -696,6 +713,7 @@ if diffExp == 1:
     volcano_plots = {}
     def volcanoPlot(name, df):
         fc_threshold = 1
+        fc_cap = 4 #limit of fold change to show on volcano plot, so to avoid showing extreme outliers.
         pval_threshold = 0.05
 
         df['neg_log10_p'] = -np.log10(df['adj.P.Val'])
@@ -708,6 +726,15 @@ if diffExp == 1:
         sb.scatterplot(data=df, x='logFC', y='neg_log10_p', hue='Significance',
                        palette={'Not Significant': 'grey', 'Upregulated': 'red', 'Downregulated': 'blue'},
                        alpha=0.7, ax=ax8)
+        labels = []
+        signific = df[df['Significance'] != 'Not Significant'].nlargest(10, 'neg_log10_p')
+
+        # Add labels
+        for _, row in signific.iterrows():
+            labels.append(ax8.text(row['logFC'], row['neg_log10_p'], row['Gene Symbol'], fontsize=8))
+
+        # Adjust text to prevent overlap
+        adjust_text(labels, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))
 
         ax8.axhline(-np.log10(pval_threshold), linestyle='--', color='black', lw=1)
         ax8.axvline(-fc_threshold, linestyle='--', color='black', lw=1)
@@ -716,8 +743,16 @@ if diffExp == 1:
         ax8.set_title(f'Differential Expression: {name}')
         ax8.set_xlabel('log2 Fold Change')
         ax8.set_ylabel('-log10 Adjusted P-value')
-        ax8.legend(title='Expression')
-        plt.tight_layout()
+        ax8.set_xlim(-fc_cap, fc_cap)
+        ax8.get_legend().remove()
+        #ax8.legend(title='Expression')
+
+        Volcanoplot_caption = "Figure: Volcano plot of differential protein abundances. \
+The canonical gene identifiers are shown instead of UniProt protein identifiers. \
+The x-axis foldchange limit is set to -4 and 4."
+        fig7.text(0.5, 0.02, Volcanoplot_caption, wrap=True, horizontalalignment='center', fontsize=10)
+
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
 
         # Save the figure object
         volcano_plots[name] = fig7
@@ -736,12 +771,15 @@ if diffExp == 1:
             with open(os.path.join(optar_result_dir, f"{dataset}_OpenTargets_{name}_FC.txt"), 'w') as outfile:
                 result.to_csv(outfile, sep='\t', index=False)
 
+            print(f"Fold change values written: {name}.")
 
 
 
 ##############################################
 # Save plots to suammary pdf
 with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as pdf:
+    print("Saving summary report file")
+
     pdf.savefig(metatab, bbox_inches='tight')
     plt.close(metatab)
 
@@ -777,5 +815,5 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
     pdf.savefig(glos_text, bbox_inches='tight')
     plt.close(glos_text)
 
-ro.conversion.rpy2py(ro.r['expr_corrected'])
-print()
+print("Job completed.")
+
