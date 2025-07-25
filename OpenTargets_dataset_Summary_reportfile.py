@@ -31,38 +31,28 @@ base = importr("base")
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 1
+test = 0
 
 def checktype():
-    if diffExp == "":
-        print("Mention baseline or differential expression analysis\n"
-              "diffExp = 1 for differential expression analysis\n"
-              "diffExp = 0 for baseline expression analysis")
-        sys.exit("Exiting: 'diffExp' not set.")
     if diffExp == 1:
         print("Performing differential expression analysis.")
     elif diffExp == 0:
         print("Performing baseline analysis.")
     else:
-        print("diffExp value should be either 0 or 1.\n"
+        print("Mention baseline or differential expression analysis\n"
               "diffExp = 1 for differential expression analysis\n"
               "diffExp = 0 for baseline expression analysis")
         sys.exit("Exiting: 'diffExp' not set.")
 
 def testing():
-    if test == "":
-        print("Mention if Test run or Full analysis\n"
-              "test = 1 for a test run using first 50 entries\n"
-              "test = 0 for a full run.")
-        sys.exit("Exiting: 'test' not set.")
     if test == 1:
         print("Performing Test run using 50 sample observations.")
     elif test == 0:
         print("Performing Full run using complete dataset.")
     else:
-        print("test value should be either 0 or 1.\n"
-              "test = 1 for Test run using 50 sample observations\n"
-              "test = 0 for Full run using complete dataset")
+        print("Mention if Test run or Full analysis\n"
+              "test = 1 for a test run using first 50 entries\n"
+              "test = 0 for a full run.")
         sys.exit("Exiting: 'test' not set.")
 
 checktype()
@@ -855,9 +845,6 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
 
     pdf.savefig(fig4, bbox_inches='tight')
     plt.close(fig4)
-
-    #pdf.savefig(fig5, bbox_inches='tight')
-    #plt.close(fig5)
 
     pdf.savefig(fig5.fig, bbox_inches='tight')
 
