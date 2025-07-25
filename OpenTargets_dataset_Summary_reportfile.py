@@ -15,6 +15,7 @@ from tqdm import tqdm
 from rpy2.robjects import default_converter, globalenv, FactorVector
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects import pandas2ri
+from rpy2.robjects.packages import importr
 import rpy2.robjects as ro
 import umap.umap_ as umap
 from adjustText import adjust_text
@@ -22,16 +23,28 @@ from adjustText import adjust_text
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
 
+limma = importr("limma")
+base = importr("base")
+
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 0
+test = 1
 
-def checkType():
+def checktype():
     if diffExp == "":
         print("Mention baseline or differential expression analysis\n"
+              "diffExp = 1 for differential expression analysis\n"
+              "diffExp = 0 for baseline expression analysis")
+        sys.exit("Exiting: 'diffExp' not set.")
+    if diffExp == 1:
+        print("Performing differential expression analysis.")
+    elif diffExp == 0:
+        print("Performing baseline analysis.")
+    else:
+        print("diffExp value should be either 0 or 1.\n"
               "diffExp = 1 for differential expression analysis\n"
               "diffExp = 0 for baseline expression analysis")
         sys.exit("Exiting: 'diffExp' not set.")
@@ -42,14 +55,23 @@ def testing():
               "test = 1 for a test run using first 50 entries\n"
               "test = 0 for a full run.")
         sys.exit("Exiting: 'test' not set.")
-checkType()
+    if test == 1:
+        print("Performing Test run using 50 sample observations.")
+    elif test == 0:
+        print("Performing Full run using complete dataset.")
+    else:
+        print("test value should be either 0 or 1.\n"
+              "test = 1 for Test run using 50 sample observations\n"
+              "test = 0 for Full run using complete dataset")
+        sys.exit("Exiting: 'test' not set.")
+
+checktype()
 testing()
 
 
 path = "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/"
-
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "Banner-DLPFC.sdrf.tsv"), sep='\t', header=(0))
+SDRF = pd.read_csv(os.path.join(path, "Banner-DLPFC.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = re.sub("-.*", "", samples[1])
@@ -97,8 +119,6 @@ sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
 
-# print json string
-# print(json.dumps(d, indent=4))
 optar_result_dir = os.path.join(path, "MaxQuant/")
 os.makedirs(optar_result_dir, exist_ok=True)
 
@@ -130,7 +150,7 @@ metatab.text(0.02, 0.95, 'Summary of reanalysed PRIDE Mass Spectrometry proteomi
              ha='left', va='top', wrap=True, fontsize=12)
 
 # 2. Protein Quantification data
-ProteinGroups = pd.read_csv(os.path.join(path, "proteinGroups.txt"), sep='\t', header=(0))
+ProteinGroups = pd.read_csv(os.path.join(path, "proteinGroups.txt"), sep='\t', header=0)
 ProteinGroups = ProteinGroups.loc[:, ~ProteinGroups.columns.str.contains("Pool|Exclude|GIS", regex=True)]
 # Pre-processed
 contams = ProteinGroups[ProteinGroups['Potential contaminant'].str.contains(r'\+', regex=True, na=False)
@@ -163,7 +183,7 @@ Preprocessed_num_of_unique_peptides = ProteinGroups['Unique peptides'].sum()
 ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 
 # Post-processing
-# Normalise (Fraction Of Total) parts per billion
+# Fraction Of Total normalisation
 Postprocessed = ProteinGroups.copy()
 
 iBAQ_cols = Postprocessed.columns[
@@ -172,12 +192,14 @@ iBAQ_cols = Postprocessed.columns[
     (Postprocessed.columns != "iBAQ")
     ].tolist()
 
+
+# Fraction Of Total: Divide abundance of each protein by the total abundance of its sample (column) and scale it up
+# to a billion to arrive at normalised abundance of parts per billion.
 Postprocessed[iBAQ_cols] = Postprocessed[iBAQ_cols].div(Postprocessed[iBAQ_cols].sum(axis=0), axis=1) * 1000000000
 
 # For testing
 if test == 1:
     Postprocessed = Postprocessed.head(50)
-
 
 # Map UniProt protein IDs to Ensembl Gene IDs
 def map_GeneID(proteingroup):
@@ -226,7 +248,7 @@ Postprocessed_num_of_identified_proteins = pd.Series(post_allPIDs).nunique()
 
 selected = ['ENSG', 'Gene Symbol', 'Protein IDs'] + iBAQ_cols
 
-Postprocessed_iBAQ = Postprocessed[selected]
+Postprocessed_iBAQ = Postprocessed[selected].copy()
 Postprocessed_iBAQ = Postprocessed_iBAQ.replace(0, np.nan)
 
 # Remove term iBAQ from column names
@@ -234,7 +256,6 @@ Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ ', '
 
 # Write post-processed results to a matrix file
 # Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
-
 unique_sample_names = SDRF[['assayGroup', 'assayId']].drop_duplicates()
 
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
@@ -260,10 +281,9 @@ ax6.table(cellText=mapping_table.values,
           colLabels=mapping_table.columns,
           loc='center',
           cellLoc='left')
-#maptable_caption = "Description of source and sample names"
-#maptab.text(0.5, 0.02, maptable_caption,
-#            wrap=True, ha='center', va='bottom', fontsize=10)
-plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+# maptable_caption = "Description of source and sample names"
+# maptab.text(0.5, 0.02, maptable_caption, wrap=True, ha='center', va='bottom', fontsize=10)
+plt.tight_layout()
 
 ######################
 # Create summary table
@@ -348,8 +368,9 @@ Figure1_caption = "Figure 1: Boxplots with distribution of iBAQ values for each 
 fig1.text(0.5, 0.02, Figure1_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
 # Write post-processed quant values as JSON
-def convertToJSON(matrixlong):
+def convertToJSON(df):
     # Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
+    matrixlong = df.copy()
     matrixlong['Unit'] = 'ppb'
     matrixlong.columns = ['Gene ID', 'Gene Symbol', 'UniProt ID', 'assayID', 'value', 'Unit']
 
@@ -368,6 +389,7 @@ def convertToJSON(matrixlong):
 
     return(postprocessed_json)
 
+
 if diffExp != 1:
     # Write Post-processed abundance matrix
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w') as outfile:
@@ -375,9 +397,12 @@ if diffExp != 1:
 
     # Write Post-processed results to json to a file
     postprocessed_json = convertToJSON(Postprocessed_iBAQ_long)
+
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
+
     print("Quant files written.")
+
 ##############################################
 # Figure 2. Protein groups commonly identified across samples
 # count number of proteins identified across all samples
@@ -413,7 +438,7 @@ fig2.text(0.5, -0.05, Figure2_caption, wrap=True, horizontalalignment='center', 
 ##############################################
 # Figure 3. Total number of proteins identified in each sample
 ##############################################
-tmp = Postprocessed_iBAQ_long[['Sample', 'FOT normalised iBAQ (ppb)']]
+tmp = Postprocessed_iBAQ_long[['Sample', 'FOT normalised iBAQ (ppb)']].copy()
 tmp = tmp[tmp['FOT normalised iBAQ (ppb)'] > 0]
 proteincounts_each_sample = tmp['Sample'].value_counts().sort_index()
 
@@ -446,7 +471,7 @@ fig3.text(0.5, 0.02, Figure3_caption, wrap=True, horizontalalignment='center', f
 ##############################################
 peptide_cols = [col for col in Postprocessed.columns if col.startswith('Peptides')]
 peptide_cols = [x for x in peptide_cols if x not in ['Peptides']]
-Sample_peptides = Postprocessed[peptide_cols]
+Sample_peptides = Postprocessed[peptide_cols].copy()
 Sample_peptides['ENSG'] = Postprocessed['ENSG']
 
 Sample_peptides.columns = Sample_peptides.columns.str.replace(r'^Peptides ', '', regex=True)
@@ -488,25 +513,35 @@ fig4.text(0.5, 0.02, Figure4_caption, wrap=True, horizontalalignment='center', f
 ##############################################
 # Figure 5. Corrleation Heatmap
 ##############################################
-tmp = Postprocessed_iBAQ[source_names]
+tmp = Postprocessed_iBAQ[source_names].copy()
 corr_matrix = tmp.corr(numeric_only=True)
+# make sure corr_matrix has no NaN values
+corr_matrix = corr_matrix.fillna(0)
+# print(np.isfinite(corr_matrix.values).all())
+# print(np.where(~np.isfinite(corr_matrix.values)))
 
 if Postprocessed_iBAQ.shape[1] > 40:
-    plotheight = Postprocessed_iBAQ.shape[1] / 2.5
-    fig5 = plt.figure(figsize=(plotheight, plotheight))
+    #plotheight = Postprocessed_iBAQ.shape[1] / 2.5
+    plotheight = 20
 else:
-    fig5 = plt.figure(figsize=(10, 10))
+    plotheight = 10
 
-ax5 = fig5.add_subplot(111)
+# Plot using clustermap
+fig5 = sb.clustermap(corr_matrix,
+                     cmap="YlGnBu",
+                     figsize=(plotheight, plotheight),
+                     annot=False,
+                     dendrogram_ratio=(0.05, 0.15),
+                     cbar_pos=(0.02, 0.8, 0.02, 0.15),
+                     row_cluster=False,
+                     col_cluster=True)
 
-sb.heatmap(corr_matrix, annot=False, cmap="YlGnBu", ax=ax5)
-ax5.set_title('Clustered map of correlation between samples')
-
-plt.tight_layout(rect=[0, 0.1, 1, 0.95])
-
-Figure5_caption = "Figure 5: Clustered map of correlation between samples. \
-The pairwise Pearson correlation was calculated between normalised intensities (iBAQs) of each sample and clustered heirarchically."
-fig5.text(0.5, 0.02, Figure5_caption, wrap=True, horizontalalignment='center', fontsize=10)
+fig5.fig.suptitle("Clustered map of Perasons correlation between samples", y=1.02, fontsize=14)
+plt.subplots_adjust(bottom=0.2)
+plt.figtext(0.5, 0.05,
+            "Figure 5: Clustered map of correlation between samples. "
+            "The pairwise Pearson correlation was calculated between normalised intensities (iBAQs) of each sample and clustered hierarchically.",
+            wrap=True, ha='center', fontsize=10)
 
 glossary = """
 Post-processing filters applied:
@@ -534,26 +569,52 @@ plt.text(0.01, 0.99, glossary, ha='left', va='top', wrap=True, fontsize=12)
 ax6.set_title('Glossary', loc='left')
 plt.axis('off')
 
+##########################################
+# Differential Expression Analysis section
+
 if diffExp == 1:
     # Limma batch correction
-    # read bacth annotation file
+    # read batch annotation file
     batch_annotation = pd.read_csv(
         "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/Limma_annotation.txt", sep='\t',
-        header=(0))
+        header=0)
+    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
 
-    ibaq_matrix = Postprocessed_iBAQ[source_names].set_index(
-        Postprocessed_iBAQ[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
-    ibaq_matrix = ibaq_matrix[sorted(ibaq_matrix.columns)]
+    ibaq_matrix = Postprocessed_iBAQ.copy()
+
+    ibaq_matrix = ibaq_matrix[source_names].set_index(
+        ibaq_matrix[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
+
+    ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
+
+    # IMPORTANT: Log transform iBAQ values before Batch Effect correction and DiffExp.
+    ibaq_matrix = np.log2(ibaq_matrix + 1)
 
     colnames = ibaq_matrix.columns.tolist()
     matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
+
+    # Check: find if any samples are missing in the annotation
+    missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
+    if missing_samples:
+        raise ValueError(f"Samples in ibaq_matrix not found in annotation: {missing_samples}")
 
     batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
     batch_annotation = batch_annotation.sort_values(by="Sample name")
     batch = batch_annotation['Batch'].tolist()
 
+    # Sort ibaq_matrix columns to match batch_annotation
     # Arrange iBAQ matrix columns in the same order as batch annotation
     ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
+
+    # Save batch annotation table to summary pdf
+    batch_annot_tab, ax9 = plt.subplots(figsize=(8, 10))
+    ax9.axis('off')
+    ax9.table(cellText=batch_annotation[['Sample name','Condition','Batch']].values,
+            colLabels=batch_annotation[['Sample name','Condition','Batch']].columns,
+            loc='center',
+            cellLoc='left',
+            fontsize=12)
+    plt.tight_layout()
 
     # Activate the R-Python interface
     # Load R libraries
@@ -566,36 +627,42 @@ if diffExp == 1:
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
 
-    print("Performing Limma batch correction")
     # Run removeBatchEffect
+    print("Performing Limma batch correction")
     ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
 
-    # Get the result back to Python
+    # Get the result from R back to Python
     with localconverter(default_converter + pandas2ri.converter):
         expr_limma_corrected = ro.conversion.rpy2py(ro.r['expr_corrected'])
 
     # Assign row and column names
     expr_limma_corrected = pd.DataFrame(expr_limma_corrected,
-                                        columns=ibaq_matrix.columns.tolist(),
-                                        index=ibaq_matrix.index.tolist())
-
+                                        columns=ibaq_matrix.columns,
+                                        index=ibaq_matrix.index)
 
     # Write abundance matrix
-    expr_limma_matrix = expr_limma_corrected.copy()
-    expr_limma_matrix['ENSG'] = expr_limma_matrix.index.str.replace(r'\+.*', '', regex=True)
-    expr_limma_matrix['Gene Symbol'] = expr_limma_matrix.index.str.replace(r'ENSG\d+\+', '', regex=True)
-    expr_limma_matrix['Gene Symbol'] = expr_limma_matrix['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
-    expr_limma_matrix['Protein IDs'] = expr_limma_matrix.index.str.replace(r'.*\+', '', regex=True)
-    expr_limma_long = pd.melt(expr_limma_matrix,
+    tmp_exp = expr_limma_corrected.copy()
+
+    # reconvert log2 transformed limma corrected values back to save as iBAQ ppb values
+    expr_limma_iBAQ = (2 ** tmp_exp) - 1
+
+    expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.replace(r'\+.*', '', regex=True)
+    expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ.index.str.replace(r'ENSG\d+\+', '', regex=True)
+    expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
+    expr_limma_iBAQ['Protein IDs'] = expr_limma_iBAQ.index.str.replace(r'.*\+', '', regex=True)
+    cols = expr_limma_iBAQ.columns.tolist()
+    column_reorder = cols[-3:] + cols[:-3]
+    expr_limma_iBAQ = expr_limma_iBAQ[column_reorder]
+
+    expr_limma_long = pd.melt(expr_limma_iBAQ,
                                 id_vars=['ENSG', 'Gene Symbol', 'Protein IDs'],
                                 value_vars=source_names,
                                 var_name='Sample',
                                 value_name='FOT normalised iBAQ (ppb)')
 
-    sorted_samples = sorted(expr_limma_long['Sample'].unique())
-    
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w')as outfile:
-        expr_limma_corrected.to_csv(outfile, sep='\t', index=False)
+        expr_limma_iBAQ.to_csv(outfile, sep='\t', index=False)
+
 
     # Write Post-processed results to json to a file
     postprocessed_json = convertToJSON(expr_limma_long)
@@ -604,13 +671,13 @@ if diffExp == 1:
 
     print("Quant files written.")
 
-    # transpose to have rows as samples and columns as features (genes, peptides, etc.).
-    expr_limma_trans = expr_limma_corrected.T
-    # change NaN to 0
-    expr_limma_trans[np.isnan(expr_limma_trans)] = 0
-
     ## UMAP
     print("Performing UMAP.")
+
+    # transpose to have rows as samples and columns as features (genes, peptides, etc.).
+    expr_limma_trans = expr_limma_corrected.copy().T
+    # change NaN to 0. UMAP does not handle NaN
+    expr_limma_trans[np.isnan(expr_limma_trans)] = 0
     # Initialize UMAP, Fit and transform
     umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
 
@@ -658,76 +725,64 @@ if diffExp == 1:
     plt.tight_layout()
     #plt.show()
     '''
+
     ## Differential expression
     print("Performing differential expression analysis.")
-    # doing the opposite of renaming columns done before
-    expr_limma_sample_group = pd.DataFrame(expr_limma_corrected,
-                                           index=expr_limma_corrected.columns)
-    expr_limma_sample_group = expr_limma_sample_group.rename(
-        index=dict(zip(unique_sample_names['assayId'], unique_sample_names['assayGroup'])))
-    expr_limma_sample_group.index = expr_limma_sample_group.index.str.replace(r'\d+', '', regex=True).str.strip()
-    expr_limma_sample_group.index = expr_limma_sample_group.index.str.replace(r'.*-', '', regex=True).str.strip()
-    expr_limma_sample_group.index = expr_limma_sample_group.index.str.replace(r'(?i)Asymptomatic', 'Asym',
-                                                                              regex=True).str.strip()
-    expr_limma_sample_group.index = expr_limma_sample_group.index.str.replace(r'(?i)Alzheimer\'s disease', 'AD',
-                                                                              regex=True).str.strip()
-    expr_limma_sample_group.index = expr_limma_sample_group.index.str.replace(r'\s+', '', regex=True).str.strip()
 
-    expr_limma_sample_group = expr_limma_sample_group.index.tolist()
+    # Arrange expr_limma_corrected matrix columns in the same order as batch annotation
+    expr_limma_corrected = expr_limma_corrected[batch_annotation["Sample name"].values]
+    group = batch_annotation['Condition'].tolist()
 
     with localconverter(default_converter + pandas2ri.converter):
-        globalenv['expr'] = ro.conversion.py2rpy(expr_limma_corrected)
-
-    globalenv['group'] = FactorVector(expr_limma_sample_group)
+        globalenv['limma_expr_df'] = ro.conversion.py2rpy(expr_limma_corrected)
+    globalenv['group'] = ro.FactorVector(group)
 
     # Code in R to calculate differential log Fold Change
     ro.r('''
     design <- model.matrix(~ 0 + group)
     colnames(design) <- levels(group)
-
     group_levels <- levels(group)
     contrast_pairs <- combn(group_levels, 2, simplify = FALSE)
 
-    #print(paste("group:"group))
-    #print(paste("group_levels:"group_levels))
-    #print(paste("contrast_pairs:"contrast_pairs))
-
-    fit <- lmFit(expr, design)
-
+    fit <- lmFit(limma_expr_df, design)
     diff_result_all <- list()
-
+    
     for (pair in contrast_pairs) {
-    contrast_name <- paste(pair[1], "-", pair[2], sep="")
-    contrast_matrix <- makeContrasts(contrasts = contrast_name, levels = design)
-  
-    fit2 <- contrasts.fit(fit, contrast_matrix)
-    fit2 <- eBayes(fit2)
-    diff_result_all[[contrast_name]] <- topTable(fit2, number = Inf)
+        contrast_name <- paste(pair[1], "-", pair[2], sep="")
+        contrast.matrix <- makeContrasts(contrast_name, levels=design)
+        fit2 <- contrasts.fit(fit, contrast.matrix)
+        fit2 <- eBayes(fit2)
+        diff_result_all[[contrast_name]] <- topTable(fit2, number=Inf)
+        #print(head(diff_result_all[[contrast_name]]))
     }
+
     ''')
 
     contrast_names = list(ro.r('names(diff_result_all)'))
     contrast_names = [str(name) for name in contrast_names]
-    # print(contrast_names)
+    print(contrast_names)
 
     volcano_plots = {}
     def volcanoPlot(name, df):
+        mat = df.copy()
         fc_threshold = 1
-        fc_cap = 4 #limit of fold change to show on volcano plot, so to avoid showing extreme outliers.
+        #fc_cap = 4 #limit of fold change to show on volcano plot, so to avoid showing extreme outliers.
         pval_threshold = 0.05
 
-        df['neg_log10_p'] = -np.log10(df['adj.P.Val'])
-        df['Significance'] = 'Not Significant'
-        df.loc[(df['adj.P.Val'] < pval_threshold) & (df['logFC'] > fc_threshold), 'Significance'] = 'Upregulated'
-        df.loc[(df['adj.P.Val'] < pval_threshold) & (df['logFC'] < -fc_threshold), 'Significance'] = 'Downregulated'
+        mat['neg_log10_p'] = -np.log10(mat['adj.P.Val'])
+        mat['Significance'] = 'Not Significant'
+        mat.loc[(mat['adj.P.Val'] < pval_threshold) & (mat['logFC'] > fc_threshold), 'Significance'] = 'Upregulated'
+        mat.loc[(mat['adj.P.Val'] < pval_threshold) & (mat['logFC'] < -fc_threshold), 'Significance'] = 'Downregulated'
+
+        #df = df[(df['logFC']) <= 4 & (df['logFC'] >= -4)]
 
         # Create figure object
         fig7, ax8 = plt.subplots(figsize=(8, 5))
-        sb.scatterplot(data=df, x='logFC', y='neg_log10_p', hue='Significance',
+        sb.scatterplot(data=mat, x='logFC', y='neg_log10_p', hue='Significance',
                        palette={'Not Significant': 'grey', 'Upregulated': 'red', 'Downregulated': 'blue'},
                        alpha=0.7, ax=ax8)
         labels = []
-        signific = df[df['Significance'] != 'Not Significant'].nlargest(10, 'neg_log10_p')
+        signific = mat[mat['Significance'] != 'Not Significant'].nlargest(10, 'neg_log10_p')
 
         # Add labels
         for _, row in signific.iterrows():
@@ -743,13 +798,12 @@ if diffExp == 1:
         ax8.set_title(f'Differential Expression: {name}')
         ax8.set_xlabel('log2 Fold Change')
         ax8.set_ylabel('-log10 Adjusted P-value')
-        ax8.set_xlim(-fc_cap, fc_cap)
+        #ax8.set_xlim(-fc_cap, fc_cap)
         ax8.get_legend().remove()
         #ax8.legend(title='Expression')
 
         Volcanoplot_caption = "Figure: Volcano plot of differential protein abundances. \
-The canonical gene identifiers are shown instead of UniProt protein identifiers. \
-The x-axis foldchange limit is set to -4 and 4."
+The canonical gene identifiers are shown instead of UniProt protein identifiers."
         fig7.text(0.5, 0.02, Volcanoplot_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
@@ -758,6 +812,8 @@ The x-axis foldchange limit is set to -4 and 4."
         volcano_plots[name] = fig7
         return volcano_plots
 
+
+    diff_results_py = {}
     for name in contrast_names:
         with localconverter(default_converter + pandas2ri.converter):
             result = ro.r(f'diff_result_all[["{name}"]]')
@@ -765,11 +821,13 @@ The x-axis foldchange limit is set to -4 and 4."
             result['Gene Symbol'] = result.index.str.replace(r'ENSG\d+\+', '', regex=True)
             result['Gene Symbol'] = result['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
             result['Protein IDs'] = result.index.str.replace(r'.*\+', '', regex=True)
-
-            volcanoplots = volcanoPlot(name, result)
+            diff_results_py[name] = ro.conversion.rpy2py(result)
+            #print("df_py_name:", diff_results_py[name].head())
 
             with open(os.path.join(optar_result_dir, f"{dataset}_OpenTargets_{name}_FC.txt"), 'w') as outfile:
-                result.to_csv(outfile, sep='\t', index=False)
+                diff_results_py[name].to_csv(outfile, sep='\t', index=False)
+
+            volcanoplots = volcanoPlot(name, diff_results_py[name])
 
             print(f"Fold change values written: {name}.")
 
@@ -798,22 +856,36 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
     pdf.savefig(fig4, bbox_inches='tight')
     plt.close(fig4)
 
-    pdf.savefig(fig5, bbox_inches='tight')
-    plt.close(fig5)
+    #pdf.savefig(fig5, bbox_inches='tight')
+    #plt.close(fig5)
 
-    pdf.savefig(fig6, bbox_inches='tight')
-    plt.close(fig6)
+    pdf.savefig(fig5.fig, bbox_inches='tight')
 
     if(diffExp == 1):
+
+        pdf.savefig(fig6, bbox_inches='tight')
+        plt.close(fig6)
+
         for name, fig7 in volcanoplots.items():
             pdf.savefig(fig7, bbox_inches='tight')
             plt.close(fig7)
 
-    pdf.savefig(maptab, bbox_inches='tight')
-    plt.close(maptab)
+    if(diffExp == 1):
+        pdf.savefig(batch_annot_tab, bbox_inches='tight')
+        plt.close(batch_annot_tab)
+    else:
+        pdf.savefig(maptab, bbox_inches='tight')
+        plt.close(maptab)
 
     pdf.savefig(glos_text, bbox_inches='tight')
     plt.close(glos_text)
 
 print("Job completed.")
+
+
+
+
+
+
+
 
