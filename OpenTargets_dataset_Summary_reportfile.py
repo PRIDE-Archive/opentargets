@@ -59,14 +59,14 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/ACT_DorsoLateralPreFrontalCortex/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "Banner-DLPFC.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "ACT-DLPFC.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = re.sub("-.*", "", samples[1])
 # dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
-dataset_URL = "https://www.synapse.org/#!Synapse:syn7204174"
+dataset_URL = "https://www.synapse.org/Synapse:syn6038852"
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
@@ -173,7 +173,7 @@ Preprocessed_num_of_unique_peptides = ProteinGroups['Unique peptides'].sum()
 ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 
 # Post-processing
-# Fraction Of Total normalisation
+# Fraction Of Total (FOT) normalisation
 Postprocessed = ProteinGroups.copy()
 
 iBAQ_cols = Postprocessed.columns[
@@ -244,14 +244,25 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.replace(0, np.nan)
 # Remove term iBAQ from column names
 Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ ', '', regex=True)
 
-# Write post-processed results to a matrix file
 # Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
 unique_sample_names = SDRF[['assayGroup', 'assayId']].drop_duplicates()
+
+#####
+# To CHECK: if assayGroup in SDRF is the same as sample name in protein groups?
+pg_cols = Postprocessed_iBAQ.columns[3:].tolist()
+as_group = unique_sample_names['assayGroup'].tolist()
+missing_in_annotation = [col for col in pg_cols if col not in as_group]
+# add fail condition here and exit
+if missing_in_annotation:
+    print("Error: Some iBAQ sample names in ProteinGroups.txt are not the same/missing from the SDRF.")
+    print(missing_in_annotation)
+    sys.exit(1)
 
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
 Postprocessed_iBAQ = Postprocessed_iBAQ.rename(columns=rename_dict)
 source_names = Postprocessed_iBAQ.columns[3:].tolist()
+
 
 # Sort alphabetically by Gene names
 Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
@@ -381,11 +392,11 @@ def convertToJSON(df):
 
 
 if diffExp != 1:
-    # Write Post-processed abundance matrix
+    # Write Post-processed baseline abundance matrix
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w') as outfile:
         Postprocessed_iBAQ.to_csv(outfile, sep='\t', index=False)
 
-    # Write Post-processed results to json to a file
+    # Write Post-processed baseline results to json to a file
     postprocessed_json = convertToJSON(Postprocessed_iBAQ_long)
 
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
@@ -562,49 +573,12 @@ plt.axis('off')
 ##########################################
 # Differential Expression Analysis section
 
-if diffExp == 1:
-    # Limma batch correction
-    # read batch annotation file
-    batch_annotation = pd.read_csv(
-        "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/Limma_annotation.txt", sep='\t',
-        header=0)
-    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
+#############################
+# Limma Batch effect correction
+def limma_batchEffect(ibaq_matrix, batch_annotation):
 
-    ibaq_matrix = Postprocessed_iBAQ.copy()
-
-    ibaq_matrix = ibaq_matrix[source_names].set_index(
-        ibaq_matrix[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
-
-    ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
-
-    # IMPORTANT: Log transform iBAQ values before Batch Effect correction and DiffExp.
-    ibaq_matrix = np.log2(ibaq_matrix + 1)
-
-    colnames = ibaq_matrix.columns.tolist()
-    matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
-
-    # Check: find if any samples are missing in the annotation
-    missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
-    if missing_samples:
-        raise ValueError(f"Samples in ibaq_matrix not found in annotation: {missing_samples}")
-
-    batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
-    batch_annotation = batch_annotation.sort_values(by="Sample name")
-    batch = batch_annotation['Batch'].tolist()
-
-    # Sort ibaq_matrix columns to match batch_annotation
-    # Arrange iBAQ matrix columns in the same order as batch annotation
-    ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
-
-    # Save batch annotation table to summary pdf
-    batch_annot_tab, ax9 = plt.subplots(figsize=(8, 10))
-    ax9.axis('off')
-    ax9.table(cellText=batch_annotation[['Sample name','Condition','Batch']].values,
-            colLabels=batch_annotation[['Sample name','Condition','Batch']].columns,
-            loc='center',
-            cellLoc='left',
-            fontsize=12)
-    plt.tight_layout()
+    matrix_df = ibaq_matrix.copy()
+    batch = batch_annotation.copy()
 
     # Activate the R-Python interface
     # Load R libraries
@@ -612,7 +586,7 @@ if diffExp == 1:
 
     # Convert and assign ibaq_matrix to R
     with localconverter(default_converter + pandas2ri.converter):
-        globalenv['expr'] = ro.conversion.py2rpy(ibaq_matrix)
+        globalenv['expr'] = ro.conversion.py2rpy(matrix_df)
 
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
@@ -630,10 +604,49 @@ if diffExp == 1:
                                         columns=ibaq_matrix.columns,
                                         index=ibaq_matrix.index)
 
-    # Write abundance matrix
-    tmp_exp = expr_limma_corrected.copy()
+    return expr_limma_corrected
 
-    # reconvert log2 transformed limma corrected values back to save as iBAQ ppb values
+
+if diffExp == 1:
+    # read batch annotation file
+    batch_annotation = pd.read_csv(
+        "/Users/ananth/Documents/OpenTargets/ACT_DorsoLateralPreFrontalCortex/OPTAR/Limma_annotation.txt", sep='\t',
+        header=0)
+    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
+
+    ibaq_matrix = Postprocessed_iBAQ.copy()
+
+    ibaq_matrix = ibaq_matrix[source_names].set_index(
+        ibaq_matrix[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
+
+    ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
+    # IMPORTANT: Log transform iBAQ values before Batch Effect correction and Differential Expression.
+    ibaq_matrix = np.log2(ibaq_matrix + 1)
+
+    # Check: find if any samples are missing in the annotation
+    missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
+    if missing_samples:
+        raise ValueError(f"Samples in ibaq_matrix not found in batch annotation file: {missing_samples}\n")
+
+    colnames = ibaq_matrix.columns.tolist()
+    matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
+    batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
+    batch_annotation = batch_annotation.sort_values(by="Sample name")
+    batch = batch_annotation['Batch'].tolist()
+
+    # IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
+    ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
+
+    num_of_batches = batch_annotation['Batch'].nunique()
+
+    # Perform limma batch effect correction only if there are more than 1 batch.
+    if num_of_batches > 1:
+        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch)
+    else:
+        expr_limma_corrected = ibaq_matrix.copy()
+
+    # Reconvert log2 transformed limma corrected values back to save as iBAQ ppb values and Write abundance matrix
+    tmp_exp = expr_limma_corrected.copy()
     expr_limma_iBAQ = (2 ** tmp_exp) - 1
 
     expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.replace(r'\+.*', '', regex=True)
@@ -644,26 +657,35 @@ if diffExp == 1:
     column_reorder = cols[-3:] + cols[:-3]
     expr_limma_iBAQ = expr_limma_iBAQ[column_reorder]
 
-    expr_limma_long = pd.melt(expr_limma_iBAQ,
-                                id_vars=['ENSG', 'Gene Symbol', 'Protein IDs'],
-                                value_vars=source_names,
-                                var_name='Sample',
-                                value_name='FOT normalised iBAQ (ppb)')
+    matrix_df_long = pd.melt(expr_limma_iBAQ,
+                             id_vars=['ENSG', 'Gene Symbol', 'Protein IDs'],
+                             value_vars=source_names,
+                             var_name='Sample',
+                             value_name='FOT normalised iBAQ (ppb)')
 
+    # Write Post-processed results matrix
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w')as outfile:
         expr_limma_iBAQ.to_csv(outfile, sep='\t', index=False)
 
-
     # Write Post-processed results to json to a file
-    postprocessed_json = convertToJSON(expr_limma_long)
+    postprocessed_json = convertToJSON(matrix_df_long)
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
 
     print("Quant files written.")
 
+    # Save batch annotation table to summary pdf
+    batch_annot_tab, ax9 = plt.subplots(figsize=(8, 10))
+    ax9.axis('off')
+    ax9.table(cellText=batch_annotation[['Sample name','Condition','Batch']].values,
+              colLabels=batch_annotation[['Sample name','Condition','Batch']].columns,
+              loc='center',
+              cellLoc='left',
+              fontsize=12)
+    plt.tight_layout()
+
     ## UMAP
     print("Performing UMAP.")
-
     # transpose to have rows as samples and columns as features (genes, peptides, etc.).
     expr_limma_trans = expr_limma_corrected.copy().T
     # change NaN to 0. UMAP does not handle NaN
@@ -692,7 +714,11 @@ if diffExp == 1:
     ax7.set_title('UMAP')
     plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
-    Figure6_caption = "Figure 6: UMAP of limma corrected expression."
+    if num_of_batches > 1:
+        Figure6_caption = "Figure 6: UMAP of limma corrected expression."
+    else:
+        Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+
     fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
     '''
@@ -868,6 +894,7 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
     plt.close(glos_text)
 
 print("Job completed.")
+print("End")
 
 
 
