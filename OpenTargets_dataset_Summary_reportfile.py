@@ -59,20 +59,20 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD006233/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD006233.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "Banner-DLPFC.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = re.sub("-.*", "", samples[1])
-dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
-#dataset_URL = "https://www.synapse.org/Synapse:syn6038852"
+#dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
+dataset_URL = "https://www.synapse.org/#!Synapse:syn7204174"
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "28865468"
-provider = "Gallart-Palau X, Serra A. etal."
-emailID = "sksze@ntu.edu.sg"
+pubmedId = "35115731"
+provider = "Johnson ECB, Carter EK. etal."
+emailID = "erik.c.b.johnson@emory.edu"
 experimentType = "Proteomics by mass spectrometry"
 quantificationMethod = "Label-free (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
@@ -613,9 +613,6 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
 
 if diffExp == 1:
     # read batch annotation file
-    #batch_annotation = pd.read_csv(
-    #    "/Users/ananth/Documents/OpenTargets/PXD006233/OPTAR/Limma_annotation.txt", sep='\t',
-    #    header=0)
     batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
 
     batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
@@ -791,10 +788,10 @@ if diffExp == 1:
         #fc_cap = 4 #limit of fold change to show on volcano plot, so to avoid showing extreme outliers.
         pval_threshold = 0.05
 
-        mat['neg_log10_p'] = -np.log10(mat['adj.P.Val'])
+        mat['neg_log10_p'] = -np.log10(mat['P.Value'])
         mat['Significance'] = 'Not Significant'
-        mat.loc[(mat['adj.P.Val'] < pval_threshold) & (mat['logFC'] > fc_threshold), 'Significance'] = 'Upregulated'
-        mat.loc[(mat['adj.P.Val'] < pval_threshold) & (mat['logFC'] < -fc_threshold), 'Significance'] = 'Downregulated'
+        mat.loc[(mat['P.Value'] < pval_threshold) & (mat['logFC'] > fc_threshold), 'Significance'] = 'Upregulated'
+        mat.loc[(mat['P.Value'] < pval_threshold) & (mat['logFC'] < -fc_threshold), 'Significance'] = 'Downregulated'
 
         #df = df[(df['logFC']) <= 4 & (df['logFC'] >= -4)]
 
@@ -819,7 +816,7 @@ if diffExp == 1:
 
         ax8.set_title(f'Differential Expression: {name}')
         ax8.set_xlabel('log2 Fold Change')
-        ax8.set_ylabel('-log10 Adjusted P-value')
+        ax8.set_ylabel('-log10 P-value')
         #ax8.set_xlim(-fc_cap, fc_cap)
         ax8.get_legend().remove()
         #ax8.legend(title='Expression')
