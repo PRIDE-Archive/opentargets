@@ -59,26 +59,26 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/ACT_DorsoLateralPreFrontalCortex/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD006233/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "ACT-DLPFC.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD006233.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = re.sub("-.*", "", samples[1])
-# dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
-dataset_URL = "https://www.synapse.org/Synapse:syn6038852"
+dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
+#dataset_URL = "https://www.synapse.org/Synapse:syn6038852"
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "35115731"
-provider = "Johnson ECB, Carter EK. etal."
-emailID = "erik.c.b.johnson@emory.edu"
+pubmedId = "28865468"
+provider = "Gallart-Palau X, Serra A. etal."
+emailID = "sksze@ntu.edu.sg"
 experimentType = "Proteomics by mass spectrometry"
 quantificationMethod = "Label-free (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
-analysisSoftware = "MaxQuant v2.1.0.0"
+analysisSoftware = "MaxQuant v2.7.0.0"
 operatingSystem = "Red Hat Enterprise Linux Server"
 
 SDRF['experimentId'] = dataset
@@ -195,7 +195,8 @@ if test == 1:
 def map_GeneID(proteingroup):
     id = proteingroup['Protein IDs']
     split_IDs = id.split(';')
-    all_PIDs = [PID.split('|')[1] for PID in split_IDs]
+    #all_PIDs = [PID.split('|')[1] for PID in split_IDs]
+    all_PIDs = [PID.split('|')[1] if '|' in PID else PID for PID in split_IDs]
 
     tmp = mg.querymany(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
 
@@ -258,11 +259,14 @@ if missing_in_annotation:
     print(missing_in_annotation)
     sys.exit(1)
 
+####
+# Add TMT channel
+
+
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
 Postprocessed_iBAQ = Postprocessed_iBAQ.rename(columns=rename_dict)
 source_names = Postprocessed_iBAQ.columns[3:].tolist()
-
 
 # Sort alphabetically by Gene names
 Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
@@ -609,9 +613,11 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
 
 if diffExp == 1:
     # read batch annotation file
-    batch_annotation = pd.read_csv(
-        "/Users/ananth/Documents/OpenTargets/ACT_DorsoLateralPreFrontalCortex/OPTAR/Limma_annotation.txt", sep='\t',
-        header=0)
+    #batch_annotation = pd.read_csv(
+    #    "/Users/ananth/Documents/OpenTargets/PXD006233/OPTAR/Limma_annotation.txt", sep='\t',
+    #    header=0)
+    batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
+
     batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
 
     ibaq_matrix = Postprocessed_iBAQ.copy()
