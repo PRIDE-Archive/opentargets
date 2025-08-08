@@ -28,7 +28,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 1
+diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -59,14 +59,13 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/Banner_DorsoLateralPreFrontalCortex/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/Aging_Baltimore-JohnsHopkins_DorsoLateralPreFrontalCortex/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "Banner-DLPFC.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "Aging_DLPFC.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
-dataset = re.sub("-.*", "", samples[1])
-#dataset_URL = "https://www.ebi.ac.uk/pride/archive/projects/" + dataset
-dataset_URL = "https://www.synapse.org/#!Synapse:syn7204174"
+dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
+dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).unique()[0]
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
@@ -176,12 +175,32 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 # Fraction Of Total (FOT) normalisation
 Postprocessed = ProteinGroups.copy()
 
-iBAQ_cols = Postprocessed.columns[
+# To get all iBAQ columns from proteinGroups.txt
+#iBAQ_cols = Postprocessed.columns[
+iBAQ_cols_pgroups = Postprocessed.columns[
     Postprocessed.columns.str.contains("^iBAQ", regex=True) &
     ~Postprocessed.columns.str.contains("iBAQ peptides", regex=True) &
     (Postprocessed.columns != "iBAQ")
     ].tolist()
 
+# To get only those iBAQ columns that are mentioned in SDRF from proteinGroups.
+iBAQ_cols = SDRF['assayGroup'].str.replace(r'^', 'iBAQ ', regex=True).tolist()
+
+#####
+# To CHECK: if iBAQ sample names in SDRF are same as in proteinGroups.txt
+missing_samples = set(iBAQ_cols) - set(Postprocessed.columns)
+if missing_samples:
+    print("Error: sample names in SDRF[sample name] are not the same as those in ProteinGroups.txt.")
+    print("Note: SDRF[sample name] should not contain \"iBAQ\" just sample names as it appears in ProteinGroups.txt")
+    print(missing_samples)
+    sys.exit(1)
+#####
+# To CHECK: if iBAQ samples in proteinGroups are missing in SDRF?
+missing_in_sdrf = [col for col in iBAQ_cols_pgroups if col not in iBAQ_cols]
+if missing_in_sdrf:
+    print("Warning: These iBAQ samples in ProteinGroups.txt are missing from SDRF.\n"
+          "Only samples mentioned in SDRF[sample name] will be processed.\n")
+    print(missing_in_sdrf)
 
 # Fraction Of Total: Divide abundance of each protein by the total abundance of its sample (column) and scale it up
 # to a billion to arrive at normalised abundance of parts per billion.
@@ -248,17 +267,6 @@ Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ ', '
 # Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
 unique_sample_names = SDRF[['assayGroup', 'assayId']].drop_duplicates()
 
-#####
-# To CHECK: if assayGroup in SDRF is the same as sample name in protein groups?
-pg_cols = Postprocessed_iBAQ.columns[3:].tolist()
-as_group = unique_sample_names['assayGroup'].tolist()
-missing_in_annotation = [col for col in pg_cols if col not in as_group]
-# add fail condition here and exit
-if missing_in_annotation:
-    print("Error: Some iBAQ sample names in ProteinGroups.txt are not the same/missing from the SDRF.")
-    print(missing_in_annotation)
-    sys.exit(1)
-
 ####
 # Add TMT channel
 
@@ -288,7 +296,7 @@ ax6.table(cellText=mapping_table.values,
           cellLoc='left')
 # maptable_caption = "Description of source and sample names"
 # maptab.text(0.5, 0.02, maptable_caption, wrap=True, ha='center', va='bottom', fontsize=10)
-plt.tight_layout()
+# plt.tight_layout()
 
 ######################
 # Create summary table
@@ -474,8 +482,7 @@ fig3.text(0.5, 0.02, Figure3_caption, wrap=True, horizontalalignment='center', f
 ##############################################
 # Figure 4. Total number of peptides mapped per sample
 ##############################################
-peptide_cols = [col for col in Postprocessed.columns if col.startswith('Peptides')]
-peptide_cols = [x for x in peptide_cols if x not in ['Peptides']]
+peptide_cols = SDRF['assayGroup'].str.replace(r'^', 'Peptides ', regex=True).tolist()
 Sample_peptides = Postprocessed[peptide_cols].copy()
 Sample_peptides['ENSG'] = Postprocessed['ENSG']
 
