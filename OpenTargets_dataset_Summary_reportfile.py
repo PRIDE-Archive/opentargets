@@ -28,7 +28,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 0
+diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/Aging_Baltimore-JohnsHopkins_DorsoLateralPreFrontalCortex/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/syn21443008-UniPenn_DLPFC/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "Aging_DLPFC.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "UniPenn_DLPFC.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -176,7 +176,6 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 Postprocessed = ProteinGroups.copy()
 
 # To get all iBAQ columns from proteinGroups.txt
-#iBAQ_cols = Postprocessed.columns[
 iBAQ_cols_pgroups = Postprocessed.columns[
     Postprocessed.columns.str.contains("^iBAQ", regex=True) &
     ~Postprocessed.columns.str.contains("iBAQ peptides", regex=True) &
@@ -622,8 +621,6 @@ if diffExp == 1:
     # read batch annotation file
     batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
 
-    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+', '', regex=True).str.strip()
-
     ibaq_matrix = Postprocessed_iBAQ.copy()
 
     ibaq_matrix = ibaq_matrix[source_names].set_index(
@@ -757,6 +754,9 @@ if diffExp == 1:
 
     # Arrange expr_limma_corrected matrix columns in the same order as batch annotation
     expr_limma_corrected = expr_limma_corrected[batch_annotation["Sample name"].values]
+
+    # no spaces or special characters (except _ ) for conditions, limma does not allow special characters
+    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+|\'|,', '', regex=True).str.strip()
     group = batch_annotation['Condition'].tolist()
 
     with localconverter(default_converter + pandas2ri.converter):
