@@ -31,7 +31,7 @@ base = importr("base")
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 0
+test = 1
 
 def checktype():
     if diffExp == 1:
@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/syn21443008-UniPenn_DLPFC/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD031648/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "UniPenn_DLPFC.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD031648.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "35115731"
-provider = "Johnson ECB, Carter EK. etal."
-emailID = "erik.c.b.johnson@emory.edu"
+pubmedId = "36354133"
+provider = "Jang Y, Thuraisamy T. etal."
+emailID = "chanhyun@jhmi.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (differential)"
+quantificationMethod = "TMT (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -88,7 +88,7 @@ SDRF['pubmedIds'] = pubmedId
 SDRF['provider'] = provider
 
 SDRF.rename(columns={'source name': 'assayId',
-                     'sample name': 'assayGroup',
+                     'assay name': 'assayGroup',
                      'characteristics[organism part].1': 'tissue',
                      'characteristics[disease]': 'disease',
                      'characteristics[biological replicate]': 'individual',
@@ -175,35 +175,47 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 # Fraction Of Total (FOT) normalisation
 Postprocessed = ProteinGroups.copy()
 
-# To get all iBAQ columns from proteinGroups.txt
-iBAQ_cols_pgroups = Postprocessed.columns[
-    Postprocessed.columns.str.contains("^iBAQ", regex=True) &
-    ~Postprocessed.columns.str.contains("iBAQ peptides", regex=True) &
-    (Postprocessed.columns != "iBAQ")
+# If TMT dataset
+label = SDRF['comment[label]'].str.contains('TMT', case=False, na=False)
+if label.any():
+    internal_standard_labels = SDRF.loc[
+        SDRF['disease'].str.lower().isin(['global internal standard', 'gis']),'assayGroup'].unique().tolist()
+    internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
+    # remove intensities of Internal Standard TMT channels from downstream postprocessing
+    Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
+    intensity_cols = Postprocessed.columns[
+        Postprocessed.columns.str.contains("Reporter intensity \d+", regex=True)
     ].tolist()
 
-# To get only those iBAQ columns that are mentioned in SDRF from proteinGroups.
-iBAQ_cols = SDRF['assayGroup'].str.replace(r'^', 'iBAQ ', regex=True).tolist()
+else:
+    # To get all iBAQ columns from proteinGroups.txt
+    intensity_cols_pgroups = Postprocessed.columns[
+        Postprocessed.columns.str.contains("^iBAQ", regex=True) &
+        ~Postprocessed.columns.str.contains("iBAQ peptides", regex=True) &
+        (Postprocessed.columns != "iBAQ")
+    ].tolist()
+    # To get only those iBAQ columns that are mentioned in SDRF from proteinGroups.
+    intensity_cols = SDRF['assayGroup'].str.replace(r'^', 'iBAQ ', regex=True).unique().tolist()
 
-#####
-# To CHECK: if iBAQ sample names in SDRF are same as in proteinGroups.txt
-missing_samples = set(iBAQ_cols) - set(Postprocessed.columns)
-if missing_samples:
-    print("Error: sample names in SDRF[sample name] are not the same as those in ProteinGroups.txt.")
-    print("Note: SDRF[sample name] should not contain \"iBAQ\" just sample names as it appears in ProteinGroups.txt")
-    print(missing_samples)
-    sys.exit(1)
-#####
-# To CHECK: if iBAQ samples in proteinGroups are missing in SDRF?
-missing_in_sdrf = [col for col in iBAQ_cols_pgroups if col not in iBAQ_cols]
-if missing_in_sdrf:
-    print("Warning: These iBAQ samples in ProteinGroups.txt are missing from SDRF.\n"
-          "Only samples mentioned in SDRF[sample name] will be processed.\n")
-    print(missing_in_sdrf)
+    #####
+    # To CHECK: if iBAQ sample names in SDRF are same as in proteinGroups.txt
+    missing_samples = set(intensity_cols) - set(Postprocessed.columns)
+    if missing_samples:
+        print("Error: sample names in SDRF[assay name] are not the same as those in ProteinGroups.txt.")
+        print("Note: SDRF[assay name] should not contain \"iBAQ\" just sample names as it appears in ProteinGroups.txt")
+        print(missing_samples)
+        sys.exit(1)
+    #####
+    # To CHECK: if iBAQ samples in proteinGroups are missing in SDRF?
+    missing_in_sdrf = [col for col in intensity_cols_pgroups if col not in intensity_cols]
+    if missing_in_sdrf:
+        print("Warning: These iBAQ samples in ProteinGroups.txt are missing from SDRF.\n"
+            "Only samples mentioned in SDRF[sample name] will be processed.\n")
+        print(missing_in_sdrf)
 
 # Fraction Of Total: Divide abundance of each protein by the total abundance of its sample (column) and scale it up
 # to a billion to arrive at normalised abundance of parts per billion.
-Postprocessed[iBAQ_cols] = Postprocessed[iBAQ_cols].div(Postprocessed[iBAQ_cols].sum(axis=0), axis=1) * 1000000000
+Postprocessed[intensity_cols] = Postprocessed[intensity_cols].div(Postprocessed[intensity_cols].sum(axis=0), axis=1) * 1000000000
 
 # For testing
 if test == 1:
@@ -255,20 +267,16 @@ post_split_IDs = Postprocessed['Protein IDs'].dropna().str.split(';')
 post_allPIDs = [item for sublist in post_split_IDs for item in sublist]
 Postprocessed_num_of_identified_proteins = pd.Series(post_allPIDs).nunique()
 
-selected = ['ENSG', 'Gene Symbol', 'Protein IDs'] + iBAQ_cols
+selected = ['ENSG', 'Gene Symbol', 'Protein IDs'] + intensity_cols
 
 Postprocessed_iBAQ = Postprocessed[selected].copy()
 Postprocessed_iBAQ = Postprocessed_iBAQ.replace(0, np.nan)
 
 # Remove term iBAQ from column names
-Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ ', '', regex=True)
+Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ |^Reporter intensity ', '', regex=True)
 
-# Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
-unique_sample_names = SDRF[['assayGroup', 'assayId']].drop_duplicates()
-
-####
-# Add TMT channel
-
+# Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
+unique_sample_names = SDRF[['assayGroup', 'assayId', 'disease']].drop_duplicates()
 
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
@@ -280,12 +288,18 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 
 ######################
 # Sample name to source name map table for report summary document
-mapping_table = unique_sample_names[unique_sample_names['assayId'].isin(source_names)]
-mapping_table = mapping_table.sort_values(by='assayId')
-
-# rename back columns before printing
-mapping_table.rename(columns={'assayId': 'sample name',
-                              'assayGroup': 'source name'}, inplace=True)
+if label.any():
+    # For TMT channels mention disease
+    mapping_table = SDRF[['disease', 'assayId']].drop_duplicates()
+    mapping_table = mapping_table[mapping_table['assayId'].isin(source_names)]
+    mapping_table = mapping_table.sort_values(by='assayId')
+    mapping_table.rename(columns={'assayId': 'sample name',
+                                  'disease': 'assay name'}, inplace=True)
+else:
+    mapping_table = unique_sample_names[unique_sample_names['assayId'].isin(source_names)]
+    mapping_table = mapping_table.sort_values(by='assayId')
+    mapping_table.rename(columns={'assayId': 'sample name',
+                                  'assayGroup': 'assay name'}, inplace=True)
 
 maptab, ax6 = plt.subplots(figsize=(8, 10))
 ax6.axis('off')
@@ -381,7 +395,7 @@ fig1.text(0.5, 0.02, Figure1_caption, wrap=True, horizontalalignment='center', f
 
 # Write post-processed quant values as JSON
 def convertToJSON(df):
-    # Replace descriptive column names (iBAQ Heart 1) with Sample names (PXD-Sample-1)
+    # Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
     matrixlong = df.copy()
     matrixlong['Unit'] = 'ppb'
     matrixlong.columns = ['Gene ID', 'Gene Symbol', 'UniProt ID', 'assayID', 'value', 'Unit']
@@ -478,48 +492,53 @@ Figure3_caption = "Figure 3: Protein counts in each sample. The total number of 
 from all protein groups to which at least 2 or more unique peptides from each sample are mapped to."
 fig3.text(0.5, 0.02, Figure3_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
+#
 ##############################################
 # Figure 4. Total number of peptides mapped per sample
+# NOTE: Individual sample level peptide count data is not available
+# for individual TMT channels in proteinGroups.txt,
+# hence this plot is only shown for label-free experiments.
 ##############################################
-peptide_cols = SDRF['assayGroup'].str.replace(r'^', 'Peptides ', regex=True).tolist()
-Sample_peptides = Postprocessed[peptide_cols].copy()
-Sample_peptides['ENSG'] = Postprocessed['ENSG']
+if not label.any():
+    peptide_cols = SDRF['assayGroup'].str.replace(r'^', 'Peptides ', regex=True).unique().tolist()
+    Sample_peptides = Postprocessed[peptide_cols].copy()
+    Sample_peptides['ENSG'] = Postprocessed['ENSG']
 
-Sample_peptides.columns = Sample_peptides.columns.str.replace(r'^Peptides ', '', regex=True)
-Sample_peptides = Sample_peptides.rename(columns=rename_dict)
+    Sample_peptides.columns = Sample_peptides.columns.str.replace(r'^Peptides ', '', regex=True)
+    Sample_peptides = Sample_peptides.rename(columns=rename_dict)
 
-Sample_peptides_long = pd.melt(Sample_peptides,
-                               id_vars=['ENSG'],
-                               value_vars=Sample_peptides.columns[:-1],
-                               var_name='Samples',
-                               value_name='Number of peptides'
-                               )
-Sample_peptides_long = Sample_peptides_long[Sample_peptides_long['Number of peptides'] > 0]
-peptidecounts_each_sample = Sample_peptides_long['Samples'].value_counts().sort_index()
+    Sample_peptides_long = pd.melt(Sample_peptides,
+                                   id_vars=['ENSG'],
+                                   value_vars=Sample_peptides.columns[:-1],
+                                   var_name='Samples',
+                                   value_name='Number of peptides'
+                                   )
+    Sample_peptides_long = Sample_peptides_long[Sample_peptides_long['Number of peptides'] > 0]
+    peptidecounts_each_sample = Sample_peptides_long['Samples'].value_counts().sort_index()
 
-if Postprocessed_iBAQ.shape[1] > 40:
-    plotheight = Postprocessed_iBAQ.shape[1] / 2.5
-    fig4 = plt.figure(figsize=(10, plotheight))
-    ax4 = fig4.add_subplot(111)
-    peptidecounts_each_sample.plot(kind='barh', ax=ax4)
-    ax4.set_title('Peptides identified in each sample')
-    ax4.set_ylabel('Samples')
-    ax4.set_xlabel('Number of peptides')
-    ax4.tick_params(axis='x', rotation=90)
-else:
-    fig4 = plt.figure(figsize=(10, 6))
-    ax4 = fig4.add_subplot(111)
-    peptidecounts_each_sample.plot(kind='bar', ax=ax4)
-    ax4.set_title('Peptides identified in each sample')
-    ax4.set_xlabel('Samples')
-    ax4.set_ylabel('Number of peptides')
-    ax4.tick_params(axis='x', rotation=90)
+    if Postprocessed_iBAQ.shape[1] > 40:
+        plotheight = Postprocessed_iBAQ.shape[1] / 2.5
+        fig4 = plt.figure(figsize=(10, plotheight))
+        ax4 = fig4.add_subplot(111)
+        peptidecounts_each_sample.plot(kind='barh', ax=ax4)
+        ax4.set_title('Peptides identified in each sample')
+        ax4.set_ylabel('Samples')
+        ax4.set_xlabel('Number of peptides')
+        ax4.tick_params(axis='x', rotation=90)
+    else:
+        fig4 = plt.figure(figsize=(10, 6))
+        ax4 = fig4.add_subplot(111)
+        peptidecounts_each_sample.plot(kind='bar', ax=ax4)
+        ax4.set_title('Peptides identified in each sample')
+        ax4.set_xlabel('Samples')
+        ax4.set_ylabel('Number of peptides')
+        ax4.tick_params(axis='x', rotation=90)
 
-plt.tight_layout(rect=[0, 0.1, 1, 0.95])
+    plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
-Figure4_caption = "Figure 4: Peptide counts in each sample. The total number of peptides that are mapped\
- across all protein groups from each sample."
-fig4.text(0.5, 0.02, Figure4_caption, wrap=True, horizontalalignment='center', fontsize=10)
+    Figure4_caption = "Figure 4: Peptide counts in each sample. The total number of peptides that are mapped\
+    across all protein groups from each sample."
+    fig4.text(0.5, 0.02, Figure4_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
 ##############################################
 # Figure 5. Corrleation Heatmap
@@ -715,7 +734,10 @@ if diffExp == 1:
     fig6 = plt.figure(figsize=(7, 5))
     ax7 = fig6.add_subplot(111)
 
-    sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="Sample", style="Batch")
+    if label.any():
+        sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="disease", style="Batch")
+    else:
+        sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="Sample", style="Batch")
 
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
     ax7.set_title('UMAP')
@@ -879,8 +901,9 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
     pdf.savefig(fig3, bbox_inches='tight')
     plt.close(fig3)
 
-    pdf.savefig(fig4, bbox_inches='tight')
-    plt.close(fig4)
+    if not label.any():
+        pdf.savefig(fig4, bbox_inches='tight')
+        plt.close(fig4)
 
     pdf.savefig(fig5.fig, bbox_inches='tight')
 
