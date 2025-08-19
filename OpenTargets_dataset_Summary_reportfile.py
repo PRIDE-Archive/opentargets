@@ -31,7 +31,7 @@ base = importr("base")
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 1
+test = 0
 
 def checktype():
     if diffExp == 1:
@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD031648/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD010138/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD031648.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD010138.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "36354133"
-provider = "Jang Y, Thuraisamy T. etal."
-emailID = "chanhyun@jhmi.edu"
+pubmedId = "31207390"
+provider = "Mendonça CF, Kuras M. etal."
+emailID = "gyorgy.marko-varga@bme.lth.se"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (differential)"
+quantificationMethod = "TMT (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -179,7 +179,7 @@ Postprocessed = ProteinGroups.copy()
 label = SDRF['comment[label]'].str.contains('TMT', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
-        SDRF['disease'].str.lower().isin(['global internal standard', 'gis']),'assayGroup'].unique().tolist()
+        SDRF['disease'].str.lower().isin(['global internal standard', 'gis', 'pool']),'assayGroup'].unique().tolist()
     internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
@@ -290,11 +290,11 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 # Sample name to source name map table for report summary document
 if label.any():
     # For TMT channels mention disease
-    mapping_table = SDRF[['disease', 'assayId']].drop_duplicates()
+    mapping_table = SDRF[['factor value[organism part]', 'assayId']].drop_duplicates()
     mapping_table = mapping_table[mapping_table['assayId'].isin(source_names)]
     mapping_table = mapping_table.sort_values(by='assayId')
     mapping_table.rename(columns={'assayId': 'sample name',
-                                  'disease': 'assay name'}, inplace=True)
+                                  'factor value[organism part]': 'assay name'}, inplace=True)
 else:
     mapping_table = unique_sample_names[unique_sample_names['assayId'].isin(source_names)]
     mapping_table = mapping_table.sort_values(by='assayId')
@@ -708,7 +708,7 @@ if diffExp == 1:
               loc='center',
               cellLoc='left',
               fontsize=12)
-    plt.tight_layout()
+    #plt.tight_layout()
 
     ## UMAP
     print("Performing UMAP.")
@@ -728,6 +728,7 @@ if diffExp == 1:
     umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
     umap_plotdata['Batch'] = batch
     umap_plotdata['Sample'] = umap_plotdata['assayGroup'].str.replace(r'\d+', '', regex=True).str.strip()
+    umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'_', ' ', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
 
