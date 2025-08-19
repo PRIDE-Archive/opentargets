@@ -73,7 +73,7 @@ pubmedId = "31207390"
 provider = "Mendonça CF, Kuras M. etal."
 emailID = "gyorgy.marko-varga@bme.lth.se"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (baseline)"
+quantificationMethod = "Label-free (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -290,11 +290,22 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 # Sample name to source name map table for report summary document
 if label.any():
     # For TMT channels mention disease
-    mapping_table = SDRF[['factor value[organism part]', 'assayId']].drop_duplicates()
-    mapping_table = mapping_table[mapping_table['assayId'].isin(source_names)]
-    mapping_table = mapping_table.sort_values(by='assayId')
-    mapping_table.rename(columns={'assayId': 'sample name',
-                                  'factor value[organism part]': 'assay name'}, inplace=True)
+    if "factor value[disease]" in SDRF.columns:
+        mapping_table = SDRF[['factor value[disease]', 'assayId']].drop_duplicates()
+        mapping_table.rename(columns={'assayId': 'sample name',
+                                      'factor value[disease]': 'assay name'}, inplace=True)
+    elif "factor value[organism part]" in SDRF.colums:
+        mapping_table = SDRF[['factor value[organism part]', 'assayId']].drop_duplicates()
+        mapping_table.rename(columns={'assayId': 'sample name',
+                                      'factor value[organism part]': 'assay name'}, inplace=True)
+    else:
+        mapping_table = SDRF[['disease', 'assayId']].drop_duplicates()
+        mapping_table.rename(columns={'assayId': 'sample name',
+                                      'disease': 'assay name'}, inplace=True)
+
+    mapping_table = mapping_table[mapping_table['sample name'].isin(source_names)]
+    mapping_table = mapping_table.sort_values(by='sample name')
+
 else:
     mapping_table = unique_sample_names[unique_sample_names['assayId'].isin(source_names)]
     mapping_table = mapping_table.sort_values(by='assayId')
