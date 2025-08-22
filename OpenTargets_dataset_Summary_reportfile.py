@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD010138/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD010560/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD010138.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD010560.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "31207390"
-provider = "Mendonça CF, Kuras M. etal."
-emailID = "gyorgy.marko-varga@bme.lth.se"
+pubmedId = "32614981"
+provider = "Sathe G, Albert M. etal."
+emailID = "pandey@jhmi.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (differential)"
+quantificationMethod = "TMT (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -650,7 +650,7 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
 if diffExp == 1:
     # read batch annotation file
     batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
-
+    batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
     ibaq_matrix = Postprocessed_iBAQ.copy()
 
     ibaq_matrix = ibaq_matrix[source_names].set_index(
@@ -668,6 +668,7 @@ if diffExp == 1:
     colnames = ibaq_matrix.columns.tolist()
     matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
     batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
+
     batch_annotation = batch_annotation.sort_values(by="Sample name")
     batch = batch_annotation['Batch'].tolist()
 
