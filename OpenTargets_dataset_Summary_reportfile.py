@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD010560/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD040224/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD010560.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD040224.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,9 +69,9 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "32614981"
-provider = "Sathe G, Albert M. etal."
-emailID = "pandey@jhmi.edu"
+pubmedId = "37024090"
+provider = "Hurst C, Pugh DA. etal."
+emailID = "nseyfri@emory.edu"
 experimentType = "Proteomics by mass spectrometry"
 quantificationMethod = "TMT (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
@@ -92,18 +92,19 @@ SDRF.rename(columns={'source name': 'assayId',
                      'characteristics[organism part].1': 'tissue',
                      'characteristics[disease]': 'disease',
                      'characteristics[biological replicate]': 'individual',
+                     'comment[technical replicate]': 'technical replicate',
                      'characteristics[sex]': 'sex',
                      'characteristics[age]': 'age'}, inplace=True)
 
 sub_SDRF = SDRF[["assayId", "assayGroup", "tissue",
-                 "disease", "individual", "sex", "age",
+                 "disease", "individual", "technical replicate", "sex", "age",
                  "experimentId", "experimentType", "species", "speciesOntURI",
                  "pubmedIds", "provider"]].drop_duplicates()
 
 # convert dictionary to json
 sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
                                'speciesOntURI', 'pubmedIds', 'provider'])
-             [['assayId', 'assayGroup', 'tissue', 'disease', 'individual', 'sex', 'age']]
+             [['assayId', 'assayGroup', 'tissue', 'disease', 'individual', 'technical replicate', 'sex', 'age']]
              .apply(lambda x: x.to_dict('records'))
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
@@ -179,7 +180,7 @@ Postprocessed = ProteinGroups.copy()
 label = SDRF['comment[label]'].str.contains('TMT', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
-        SDRF['disease'].str.lower().isin(['global internal standard', 'gis', 'pool']),'assayGroup'].unique().tolist()
+        SDRF['disease'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'exclude', 'not available']),'assayGroup'].unique().tolist()
     internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
@@ -291,20 +292,21 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 if label.any():
     # For TMT channels mention disease
     if "factor value[disease]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[disease]', 'assayId']].drop_duplicates()
+        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
         mapping_table.rename(columns={'assayId': 'sample name',
                                       'factor value[disease]': 'assay name'}, inplace=True)
-    elif "factor value[organism part]" in SDRF.colums:
-        mapping_table = SDRF[['factor value[organism part]', 'assayId']].drop_duplicates()
+    elif "factor value[organism part]" in SDRF.columns:
+        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
         mapping_table.rename(columns={'assayId': 'sample name',
                                       'factor value[organism part]': 'assay name'}, inplace=True)
     else:
-        mapping_table = SDRF[['disease', 'assayId']].drop_duplicates()
+        mapping_table = SDRF[['disease', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
         mapping_table.rename(columns={'assayId': 'sample name',
                                       'disease': 'assay name'}, inplace=True)
 
     mapping_table = mapping_table[mapping_table['sample name'].isin(source_names)]
-    mapping_table = mapping_table.sort_values(by='sample name')
+    #mapping_table = mapping_table.sort_values(by='sample name')
+    mapping_table = mapping_table.sort_values(by=["individual", "assay name", "technical replicate"])
 
 else:
     mapping_table = unique_sample_names[unique_sample_names['assayId'].isin(source_names)]
@@ -739,7 +741,10 @@ if diffExp == 1:
     umap_plotdata = umap_plotdata.reset_index()
     umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
     umap_plotdata['Batch'] = batch
-    umap_plotdata['Sample'] = umap_plotdata['assayGroup'].str.replace(r'\d+', '', regex=True).str.strip()
+    if label.any():
+        umap_plotdata['Sample'] = umap_plotdata['disease'].str.replace(r'\d+', '', regex=True).str.strip()
+    else:
+        umap_plotdata['Sample'] = umap_plotdata['assayGroup'].str.replace(r'\d+', '', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'_', ' ', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
@@ -747,10 +752,7 @@ if diffExp == 1:
     fig6 = plt.figure(figsize=(7, 5))
     ax7 = fig6.add_subplot(111)
 
-    if label.any():
-        sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="disease", style="Batch")
-    else:
-        sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="Sample", style="Batch")
+    sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="Sample", style="Batch")
 
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
     ax7.set_title('UMAP')

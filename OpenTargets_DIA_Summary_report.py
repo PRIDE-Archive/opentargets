@@ -60,10 +60,11 @@ testing()
 
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD033060/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD022872/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD033060-dia.sdrf.tsv"), sep='\t', header=0)
-#SDRF = pd.read_csv(os.path.join(path, "PXD016999.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD022872-dia.sdrf.tsv"), sep='\t', header=0)
+remove_samples = SDRF.loc[SDRF["source name"].str.contains("Sample-XX", case=False, na=False), "assay name"]
+SDRF = SDRF[~SDRF["source name"].str.contains("Sample-XX", na=False)]
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -71,8 +72,8 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "36578035"
-provider = "Mol MO, Miedema SSM. etal."
+pubmedId = "35799292"
+provider = "Miedema SSM, Mol MO. etal."
 emailID = "guus.smit@vu.nl"
 experimentType = "Proteomics by mass spectrometry"
 quantificationMethod = "Label-free (differential)"
@@ -145,6 +146,7 @@ metatab.text(0.02, 0.95, 'Summary of reanalysed PRIDE Mass Spectrometry proteomi
 ############################################
 # Read "Report.tsv" quant files from DIA-NN
 report_quant = pd.read_csv(os.path.join(path, "report.tsv"), sep='\t', header=0)
+report_quant = report_quant[~report_quant["Run"].isin(remove_samples)]
 report_quant["Run"] = report_quant["Run"].str.replace("20180403_Set4.6_00_036_cont-20180403_Set4.6_06_036_cont", "20180403_Set4.6_00_036_cont", regex=False)
 
 sdrf_samples = SDRF["assayGroup"].unique().tolist()
@@ -165,7 +167,7 @@ if missing_in_sdrf:
           "Only samples mentioned in SDRF[sample name] will be processed.\n")
     print(missing_in_sdrf)
 
-prefilter_number_of_samples = report_quant["Run"].nunique()
+number_of_samples = SDRF["assayId"].nunique()
 prefilter_number_of_decoys = report_quant[report_quant["Protein.Ids"].str.contains("DECOY", regex=False)]["Protein.Ids"].nunique()
 prefilter_number_of_contaminants = report_quant[report_quant["Protein.Ids"].str.contains("CONTAM", regex=False)]["Protein.Ids"].nunique()
 prefilter_number_of_entraps = report_quant[report_quant["Protein.Ids"].str.contains("ENTRAP", regex=False)]["Protein.Ids"].nunique()
@@ -197,12 +199,33 @@ postfilter_number_of_unique_peptides = report_quant_submatrix["Stripped.Sequence
 postfilter_number_of_proteins = report_quant_submatrix["Protein.Ids"].nunique()
 postfilter_number_of_genes = report_quant_submatrix["Genes"].nunique()
 
+# new section
+# Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
+factor_cols = [col for col in SDRF.columns if col.startswith("factor value")]
+if factor_cols:
+    SDRF["factors"] = SDRF[factor_cols].astype(str).agg(", ".join, axis=1)
+unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates()
+# Median average over technical replicate samples
+# Technical replicates have the same assay ID (PXD-Sample-**)
+rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
+report_quant_submatrix["Run"] = report_quant_submatrix["Run"].replace(rename_dict)
+
+report_quant_submatrix = report_quant_submatrix.drop(columns=["Stripped.Sequence"])
+report_quant_submatrix = report_quant_submatrix.groupby(["Run", "Protein.Ids", "Genes"], as_index=False).median()
+report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes"],
+                                                           columns="Run",
+                                                           values="Genes.Normalised").reset_index()
+
+"""
 report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes", "Stripped.Sequence"],
-                                                      columns="Run",
+                                                     columns="Run",
                                                       values="Genes.Normalised").reset_index()
 
 # Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
-unique_sample_names = SDRF[['assayGroup', 'assayId', 'disease']].drop_duplicates()
+factor_cols = [col for col in SDRF.columns if col.startswith("factor value")]
+if factor_cols:
+    SDRF["factors"] = SDRF[factor_cols].astype(str).agg(", ".join, axis=1)
+unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates()
 
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
@@ -210,6 +233,7 @@ report_quant_submatrix_wide = report_quant_submatrix_wide.rename(columns=rename_
 
 report_quant_submatrix_wide = report_quant_submatrix_wide.drop(columns=["Stripped.Sequence"])
 report_quant_submatrix_wide = report_quant_submatrix_wide.groupby(["Protein.Ids", "Genes"], as_index=False).median()
+"""
 
 # For testing
 if test == 1:
@@ -280,11 +304,11 @@ ax6.table(cellText=mapping_table.values,
 ######################
 # Create summary table
 table = {
-    'Pre-processed': [len(quant_samples), prefilter_number_of_contaminants, prefilter_number_of_entraps,
+    'Pre-processed': [number_of_samples, prefilter_number_of_contaminants, prefilter_number_of_entraps,
                       prefilter_number_of_decoys,
                       prefilter_number_of_proteins, prefilter_number_of_PSMs,
                       "NA", prefilter_number_of_unique_peptides],
-    'Post-processed*': [len(quant_samples), 0, 0, 0,
+    'Post-processed*': [number_of_samples, 0, 0, 0,
                         postfilter_number_of_proteins, postfilter_number_of_PSMs,
                         postfilter_number_of_genes, postfilter_number_of_unique_peptides]
 }
@@ -449,6 +473,7 @@ Protein groups were counted as present in a sample when the sample had registere
 fig2.text(0.5, -0.05, Figure2_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
 iBAQ_quant = iBAQ_quant.drop(columns=["protein_count_across_samples"])
+
 ##############################################
 # Figure 3. Total number of proteins identified in each sample
 ##############################################
@@ -614,6 +639,7 @@ if diffExp == 1:
     batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
     ibaq_matrix = iBAQ_quant.copy()
 
+    iBAQ_cols = iBAQ_quant.columns[3:]
     ibaq_matrix = ibaq_matrix[iBAQ_cols].set_index(
         ibaq_matrix[['ENSG', 'Genes', 'Protein.Ids']].astype(str).agg('+'.join, axis=1))
 
@@ -698,12 +724,14 @@ if diffExp == 1:
 
     umap_plotdata.index.name = 'assayId'
     umap_plotdata = umap_plotdata.reset_index()
-    umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
+    umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
+    umap_plotdata = pd.merge(umap_plotdata, umap_sample_map, on='assayId')
     umap_plotdata['Batch'] = batch
-    umap_plotdata['Sample'] = umap_plotdata['disease'].str.replace(r'\d+', '', regex=True).str.strip()
+    umap_plotdata['Sample'] = umap_plotdata['factors'].str.replace(r'\d+', '', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'_', ' ', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
+    umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Cerebrospinal fluid', 'CSF', regex=True)
 
     fig6 = plt.figure(figsize=(7, 5))
     ax7 = fig6.add_subplot(111)
