@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD040224/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD027173/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD040224.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD027173.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "37024090"
-provider = "Hurst C, Pugh DA. etal."
-emailID = "nseyfri@emory.edu"
+pubmedId = "34712240"
+provider = "Velasquez E, Szeitz B. etal."
+emailID = "gyorgy.marko-varga@bme.lth.se"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (differential)"
+quantificationMethod = "Label free (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -277,7 +277,10 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.replace(0, np.nan)
 Postprocessed_iBAQ.columns = Postprocessed_iBAQ.columns.str.replace(r'^iBAQ |^Reporter intensity ', '', regex=True)
 
 # Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
-unique_sample_names = SDRF[['assayGroup', 'assayId', 'disease']].drop_duplicates()
+factor_cols = [col for col in SDRF.columns if col.startswith("factor value")]
+if factor_cols:
+    SDRF["factors"] = SDRF[factor_cols].astype(str).agg(", ".join, axis=1)
+unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates()
 
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
@@ -739,12 +742,10 @@ if diffExp == 1:
 
     umap_plotdata.index.name = 'assayId'
     umap_plotdata = umap_plotdata.reset_index()
-    umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
+    umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
+    umap_plotdata = pd.merge(umap_plotdata, umap_sample_map, on='assayId')
     umap_plotdata['Batch'] = batch
-    if label.any():
-        umap_plotdata['Sample'] = umap_plotdata['disease'].str.replace(r'\d+', '', regex=True).str.strip()
-    else:
-        umap_plotdata['Sample'] = umap_plotdata['assayGroup'].str.replace(r'\d+', '', regex=True).str.strip()
+    umap_plotdata['Sample'] = umap_plotdata['factors'].str.replace(r'\d+', '', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'_', ' ', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
