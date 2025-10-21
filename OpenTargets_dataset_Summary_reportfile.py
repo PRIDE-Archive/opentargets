@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD027173/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD012203/OPTAR/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD027173.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD012203.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "34712240"
-provider = "Velasquez E, Szeitz B. etal."
-emailID = "gyorgy.marko-varga@bme.lth.se"
+pubmedId = "30691479"
+provider = "Adav SS, Park JE. et al."
+emailID = "sksze@ntu.edu.sg"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label free (differential)"
+quantificationMethod = "iTRAQ (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -177,7 +177,7 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 Postprocessed = ProteinGroups.copy()
 
 # If TMT dataset
-label = SDRF['comment[label]'].str.contains('TMT', case=False, na=False)
+label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
         SDRF['disease'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'exclude', 'not available']),'assayGroup'].unique().tolist()
@@ -614,6 +614,7 @@ ax6 = glos_text.add_subplot(111)
 plt.text(0.01, 0.99, glossary, ha='left', va='top', wrap=True, fontsize=12)
 ax6.set_title('Glossary', loc='left')
 plt.axis('off')
+
 
 ##########################################
 # Differential Expression Analysis section
