@@ -28,7 +28,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 1
+diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD012203/OPTAR/"
+path = "/Users/ananth/Documents/OpenTargets/PXD020192/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD012203.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD020192.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "30691479"
-provider = "Adav SS, Park JE. et al."
-emailID = "sksze@ntu.edu.sg"
+pubmedId = "33107741"
+provider = "Di Meo A, Sohaei D et al."
+emailID = "eleftherios.diamandis@sinaihealth.ca"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "iTRAQ (differential)"
+quantificationMethod = "Label-free (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -180,7 +180,7 @@ Postprocessed = ProteinGroups.copy()
 label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
-        SDRF['disease'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'exclude', 'not available']),'assayGroup'].unique().tolist()
+        SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'exclude', 'not available']),'assayGroup'].unique().tolist()
     internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
@@ -202,7 +202,7 @@ else:
     # To CHECK: if iBAQ sample names in SDRF are same as in proteinGroups.txt
     missing_samples = set(intensity_cols) - set(Postprocessed.columns)
     if missing_samples:
-        print("Error: sample names in SDRF[assay name] are not the same as those in ProteinGroups.txt.")
+        print("Error: One or more sample names mentioned in SDRF[assay name] are not present/not same as in ProteinGroups.txt.")
         print("Note: SDRF[assay name] should not contain \"iBAQ\" just sample names as it appears in ProteinGroups.txt")
         print(missing_samples)
         sys.exit(1)
@@ -589,6 +589,62 @@ plt.figtext(0.5, 0.05,
             "The pairwise Pearson correlation was calculated between normalised intensities (iBAQs) of each sample and clustered hierarchically.",
             wrap=True, ha='center', fontsize=10)
 
+
+##########################################
+# UMAP clustering
+##########################################
+def perform_UMAP(inp_expr_df):
+
+    expr_matrix = inp_expr_df.copy()
+    # transpose to have rows as samples and columns as features (genes, peptides, etc.).
+    expr_matrix_trans = expr_matrix.T
+    # change NaN to 0. UMAP does not handle NaN
+    expr_matrix_trans[np.isnan(expr_matrix_trans)] = 0
+    # Initialize UMAP, Fit and transform
+    umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_matrix_trans)
+
+    umap_plotdata = pd.DataFrame(umap_plotdata,
+                                 columns=["UMAP1", "UMAP2"],
+                                 index=expr_matrix.columns.tolist())
+
+    umap_plotdata.index.name = 'assayId'
+    umap_plotdata = umap_plotdata.reset_index()
+
+
+    return(umap_plotdata)
+
+
+##############################################
+# Figure 6. UMAP (baseline)
+##############################################
+print("Performing UMAP.")
+UMAP_iBAQ = Postprocessed_iBAQ.copy()
+UMAP_iBAQ = UMAP_iBAQ[source_names].set_index(
+        UMAP_iBAQ[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
+
+umap_plotdata = perform_UMAP(UMAP_iBAQ)
+
+umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
+umap_plotdata = umap_plotdata.sort_values(by="factors")
+
+fig6 = plt.figure(figsize=(7, 7))
+ax7 = fig6.add_subplot(111)
+
+sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="factors", style="factors")
+
+if umap_plotdata.shape[0] > 25:
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
+else:
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+ax7.set_title('UMAP')
+plt.tight_layout(rect=[0, 0.1, 1, 0.95])
+
+Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+
+fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
+
+
 glossary = """
 Post-processing filters applied:
  (i) Remove reverse decoys.
@@ -728,10 +784,14 @@ if diffExp == 1:
               fontsize=12)
     #plt.tight_layout()
 
-    ## UMAP
+    ## UMAP (differential)
+
     print("Performing UMAP.")
     # transpose to have rows as samples and columns as features (genes, peptides, etc.).
-    expr_limma_trans = expr_limma_corrected.copy().T
+    #expr_limma_trans = expr_limma_corrected.copy().T
+    #umap_plotdata = perform_UMAP(expr_limma_trans)
+    umap_plotdata = perform_UMAP(expr_limma_corrected)
+    '''
     # change NaN to 0. UMAP does not handle NaN
     expr_limma_trans[np.isnan(expr_limma_trans)] = 0
     # Initialize UMAP, Fit and transform
@@ -743,6 +803,7 @@ if diffExp == 1:
 
     umap_plotdata.index.name = 'assayId'
     umap_plotdata = umap_plotdata.reset_index()
+    '''
     umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
     umap_plotdata = pd.merge(umap_plotdata, umap_sample_map, on='assayId')
     umap_plotdata['Batch'] = batch
@@ -751,12 +812,12 @@ if diffExp == 1:
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
 
-    fig6 = plt.figure(figsize=(7, 5))
+    fig6 = plt.figure(figsize=(7, 7))
     ax7 = fig6.add_subplot(111)
 
     sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="Sample", style="Batch")
 
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
     ax7.set_title('UMAP')
     plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
@@ -924,11 +985,10 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
 
     pdf.savefig(fig5.fig, bbox_inches='tight')
 
+    pdf.savefig(fig6, bbox_inches='tight')
+    plt.close(fig6)
+
     if(diffExp == 1):
-
-        pdf.savefig(fig6, bbox_inches='tight')
-        plt.close(fig6)
-
         for name, fig7 in volcanoplots.items():
             pdf.savefig(fig7, bbox_inches='tight')
             plt.close(fig7)
