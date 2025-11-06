@@ -1,0 +1,101 @@
+Raw.file	Condition	BioReplicate	Batch	Experiment	Sample name		
+PXD007160-Sample-1-TMT126	Global Internal Standard	0	batch 1	1 PXD007160-Sample-1	PXD007160-Sample-1-TMT126		1
+PXD007160-Sample-1-TMT127C	Alzheimer's disease	3	batch 1	3 PXD007160-Sample-1	PXD007160-Sample-1-TMT127C		1
+PXD007160-Sample-1-TMT127N	Alzheimer's disease	2	batch 1	2 PXD007160-Sample-1	PXD007160-Sample-1-TMT127N		1
+PXD007160-Sample-1-TMT128C	Control	5	batch 1	5 PXD007160-Sample-1	PXD007160-Sample-1-TMT128C		1
+PXD007160-Sample-1-TMT128N	Control	4	batch 1	4 PXD007160-Sample-1	PXD007160-Sample-1-TMT128N		1
+PXD007160-Sample-1-TMT129C	Parkinson's disease	7	batch 1	7 PXD007160-Sample-1	PXD007160-Sample-1-TMT129C		1
+PXD007160-Sample-1-TMT129N	Parkinson's disease	6	batch 1	6 PXD007160-Sample-1	PXD007160-Sample-1-TMT129N		1
+PXD007160-Sample-1-TMT130C	Alzheimer's disease	9	batch 1	9 PXD007160-Sample-1	PXD007160-Sample-1-TMT130C		1
+PXD007160-Sample-1-TMT130N	Alzheimer's disease	8	batch 1	8 PXD007160-Sample-1	PXD007160-Sample-1-TMT130N		1
+PXD007160-Sample-1-TMT131	Global Internal Standard	0	batch 1	10 PXD007160-Sample-1	PXD007160-Sample-1-TMT131		1
+PXD007160-Sample-2-TMT126	Global Internal Standard	0	batch 2	1 PXD007160-Sample-2	PXD007160-Sample-2-TMT126		1
+PXD007160-Sample-2-TMT127C	Alzheimer's disease	3	batch 2	3 PXD007160-Sample-2	PXD007160-Sample-2-TMT127C		1
+PXD007160-Sample-2-TMT127N	Alzheimer's disease	2	batch 2	2 PXD007160-Sample-2	PXD007160-Sample-2-TMT127N		1
+PXD007160-Sample-2-TMT128C	Control	5	batch 2	5 PXD007160-Sample-2	PXD007160-Sample-2-TMT128C		1
+PXD007160-Sample-2-TMT128N	Control	4	batch 2	4 PXD007160-Sample-2	PXD007160-Sample-2-TMT128N		1
+PXD007160-Sample-2-TMT129C	Parkinson's disease	7	batch 2	7 PXD007160-Sample-2	PXD007160-Sample-2-TMT129C		1
+PXD007160-Sample-2-TMT129N	Parkinson's disease	6	batch 2	6 PXD007160-Sample-2	PXD007160-Sample-2-TMT129N		1
+PXD007160-Sample-2-TMT130C	Alzheimer's disease	9	batch 2	9 PXD007160-Sample-2	PXD007160-Sample-2-TMT130C		1
+PXD007160-Sample-2-TMT130N	Alzheimer's disease	8	batch 2	8 PXD007160-Sample-2	PXD007160-Sample-2-TMT130N		1
+PXD007160-Sample-2-TMT131	Global Internal Standard	0	batch 2	10 PXD007160-Sample-2	PXD007160-Sample-2-TMT131		1
+PXD007160-Sample-3-TMT126	Global Internal Standard	0	batch 3	1 PXD007160-Sample-3	PXD007160-Sample-3-TMT126		1
+PXD007160-Sample-3-TMT127C	Alzheimer's disease	3	batch 3	3 PXD007160-Sample-3	PXD007160-Sample-3-TMT127C		1
+PXD007160-Sample-3-TMT127N	Alzheimer's disease	2	batch 3	2 PXD007160-Sample-3	PXD007160-Sample-3-TMT127N		1
+PXD007160-Sample-3-TMT128C	Control	5	batch 3	5 PXD007160-Sample-3	PXD007160-Sample-3-TMT128C		1
+PXD007160-Sample-3-TMT128N	Control	4	batch 3	4 PXD007160-Sample-3	PXD007160-Sample-3-TMT128N		1
+PXD007160-Sample-3-TMT129C	Parkinson's disease	7	batch 3	7 PXD007160-Sample-3	PXD007160-Sample-3-TMT129C		1
+PXD007160-Sample-3-TMT129N	Parkinson's disease	6	batch 3	6 PXD007160-Sample-3	PXD007160-Sample-3-TMT129N		1
+PXD007160-Sample-3-TMT130C	Alzheimer's disease	9	batch 3	9 PXD007160-Sample-3	PXD007160-Sample-3-TMT130C		1
+PXD007160-Sample-3-TMT130N	Alzheimer's disease	8	batch 3	8 PXD007160-Sample-3	PXD007160-Sample-3-TMT130N		1
+PXD007160-Sample-3-TMT131	Global Internal Standard	0	batch 3	10 PXD007160-Sample-3	PXD007160-Sample-3-TMT131		1
+PXD007160-Sample-4-TMT126	Global Internal Standard	0	batch 4	1 PXD007160-Sample-4	PXD007160-Sample-4-TMT126		1
+PXD007160-Sample-4-TMT127C	Alzheimer's disease	3	batch 4	3 PXD007160-Sample-4	PXD007160-Sample-4-TMT127C		1
+PXD007160-Sample-4-TMT127N	Alzheimer's disease	2	batch 4	2 PXD007160-Sample-4	PXD007160-Sample-4-TMT127N		1
+PXD007160-Sample-4-TMT128C	Control	5	batch 4	5 PXD007160-Sample-4	PXD007160-Sample-4-TMT128C		1
+PXD007160-Sample-4-TMT128N	Control	4	batch 4	4 PXD007160-Sample-4	PXD007160-Sample-4-TMT128N		1
+PXD007160-Sample-4-TMT129C	Parkinson's disease	7	batch 4	7 PXD007160-Sample-4	PXD007160-Sample-4-TMT129C		1
+PXD007160-Sample-4-TMT129N	Parkinson's disease	6	batch 4	6 PXD007160-Sample-4	PXD007160-Sample-4-TMT129N		1
+PXD007160-Sample-4-TMT130C	Alzheimer's disease	9	batch 4	9 PXD007160-Sample-4	PXD007160-Sample-4-TMT130C		1
+PXD007160-Sample-4-TMT130N	Alzheimer's disease	8	batch 4	8 PXD007160-Sample-4	PXD007160-Sample-4-TMT130N		1
+PXD007160-Sample-4-TMT131	Global Internal Standard	0	batch 4	10 PXD007160-Sample-4	PXD007160-Sample-4-TMT131		1
+PXD007160-Sample-5-TMT126	Global Internal Standard	0	batch 5	1 PXD007160-Sample-5	PXD007160-Sample-5-TMT126		1
+PXD007160-Sample-5-TMT127C	Alzheimer's disease	3	batch 5	3 PXD007160-Sample-5	PXD007160-Sample-5-TMT127C		1
+PXD007160-Sample-5-TMT127N	Alzheimer's disease	2	batch 5	2 PXD007160-Sample-5	PXD007160-Sample-5-TMT127N		1
+PXD007160-Sample-5-TMT128C	Control	5	batch 5	5 PXD007160-Sample-5	PXD007160-Sample-5-TMT128C		1
+PXD007160-Sample-5-TMT128N	Control	4	batch 5	4 PXD007160-Sample-5	PXD007160-Sample-5-TMT128N		1
+PXD007160-Sample-5-TMT129C	Parkinson's disease	7	batch 5	7 PXD007160-Sample-5	PXD007160-Sample-5-TMT129C		1
+PXD007160-Sample-5-TMT129N	Parkinson's disease	6	batch 5	6 PXD007160-Sample-5	PXD007160-Sample-5-TMT129N		1
+PXD007160-Sample-5-TMT130C	Alzheimer's disease	9	batch 5	9 PXD007160-Sample-5	PXD007160-Sample-5-TMT130C		1
+PXD007160-Sample-5-TMT130N	Alzheimer's disease	8	batch 5	8 PXD007160-Sample-5	PXD007160-Sample-5-TMT130N		1
+PXD007160-Sample-5-TMT131	Global Internal Standard	0	batch 5	10 PXD007160-Sample-5	PXD007160-Sample-5-TMT131		1
+PXD007160-Sample-6-TMT126	Global Internal Standard	0	batch 1	1 PXD007160-Sample-6	PXD007160-Sample-6-TMT126		1
+PXD007160-Sample-6-TMT127C	Alzheimer's disease	3	batch 1	3 PXD007160-Sample-6	PXD007160-Sample-6-TMT127C		1
+PXD007160-Sample-6-TMT127N	Alzheimer's disease	2	batch 1	2 PXD007160-Sample-6	PXD007160-Sample-6-TMT127N		1
+PXD007160-Sample-6-TMT128C	Control	5	batch 1	5 PXD007160-Sample-6	PXD007160-Sample-6-TMT128C		1
+PXD007160-Sample-6-TMT128N	Control	4	batch 1	4 PXD007160-Sample-6	PXD007160-Sample-6-TMT128N		1
+PXD007160-Sample-6-TMT129C	Parkinson's disease	7	batch 1	7 PXD007160-Sample-6	PXD007160-Sample-6-TMT129C		1
+PXD007160-Sample-6-TMT129N	Parkinson's disease	6	batch 1	6 PXD007160-Sample-6	PXD007160-Sample-6-TMT129N		1
+PXD007160-Sample-6-TMT130C	Alzheimer's disease	9	batch 1	9 PXD007160-Sample-6	PXD007160-Sample-6-TMT130C		1
+PXD007160-Sample-6-TMT130N	Alzheimer's disease	8	batch 1	8 PXD007160-Sample-6	PXD007160-Sample-6-TMT130N		1
+PXD007160-Sample-6-TMT131	Global Internal Standard	0	batch 1	10 PXD007160-Sample-6	PXD007160-Sample-6-TMT131		1
+PXD007160-Sample-7-TMT126	Global Internal Standard	0	batch 2	1 PXD007160-Sample-7	PXD007160-Sample-7-TMT126		1
+PXD007160-Sample-7-TMT127C	Alzheimer's disease	3	batch 2	3 PXD007160-Sample-7	PXD007160-Sample-7-TMT127C		1
+PXD007160-Sample-7-TMT127N	Alzheimer's disease	2	batch 2	2 PXD007160-Sample-7	PXD007160-Sample-7-TMT127N		1
+PXD007160-Sample-7-TMT128C	Control	5	batch 2	5 PXD007160-Sample-7	PXD007160-Sample-7-TMT128C		1
+PXD007160-Sample-7-TMT128N	Control	4	batch 2	4 PXD007160-Sample-7	PXD007160-Sample-7-TMT128N		1
+PXD007160-Sample-7-TMT129C	Parkinson's disease	7	batch 2	7 PXD007160-Sample-7	PXD007160-Sample-7-TMT129C		1
+PXD007160-Sample-7-TMT129N	Parkinson's disease	6	batch 2	6 PXD007160-Sample-7	PXD007160-Sample-7-TMT129N		1
+PXD007160-Sample-7-TMT130C	Alzheimer's disease	9	batch 2	9 PXD007160-Sample-7	PXD007160-Sample-7-TMT130C		1
+PXD007160-Sample-7-TMT130N	Alzheimer's disease	8	batch 2	8 PXD007160-Sample-7	PXD007160-Sample-7-TMT130N		1
+PXD007160-Sample-7-TMT131	Global Internal Standard	0	batch 2	10 PXD007160-Sample-7	PXD007160-Sample-7-TMT131		1
+PXD007160-Sample-8-TMT126	Global Internal Standard	0	batch 3	1 PXD007160-Sample-8	PXD007160-Sample-8-TMT126		1
+PXD007160-Sample-8-TMT127C	Alzheimer's disease	3	batch 3	3 PXD007160-Sample-8	PXD007160-Sample-8-TMT127C		1
+PXD007160-Sample-8-TMT127N	Alzheimer's disease	2	batch 3	2 PXD007160-Sample-8	PXD007160-Sample-8-TMT127N		1
+PXD007160-Sample-8-TMT128C	Control	5	batch 3	5 PXD007160-Sample-8	PXD007160-Sample-8-TMT128C		1
+PXD007160-Sample-8-TMT128N	Control	4	batch 3	4 PXD007160-Sample-8	PXD007160-Sample-8-TMT128N		1
+PXD007160-Sample-8-TMT129C	Parkinson's disease	7	batch 3	7 PXD007160-Sample-8	PXD007160-Sample-8-TMT129C		1
+PXD007160-Sample-8-TMT129N	Parkinson's disease	6	batch 3	6 PXD007160-Sample-8	PXD007160-Sample-8-TMT129N		1
+PXD007160-Sample-8-TMT130C	Alzheimer's disease	9	batch 3	9 PXD007160-Sample-8	PXD007160-Sample-8-TMT130C		1
+PXD007160-Sample-8-TMT130N	Alzheimer's disease	8	batch 3	8 PXD007160-Sample-8	PXD007160-Sample-8-TMT130N		1
+PXD007160-Sample-8-TMT131	Global Internal Standard	0	batch 3	10 PXD007160-Sample-8	PXD007160-Sample-8-TMT131		1
+PXD007160-Sample-9-TMT126	Global Internal Standard	0	batch 4	1 PXD007160-Sample-9	PXD007160-Sample-9-TMT126		1
+PXD007160-Sample-9-TMT127C	Alzheimer's disease	3	batch 4	3 PXD007160-Sample-9	PXD007160-Sample-9-TMT127C		1
+PXD007160-Sample-9-TMT127N	Alzheimer's disease	2	batch 4	2 PXD007160-Sample-9	PXD007160-Sample-9-TMT127N		1
+PXD007160-Sample-9-TMT128C	Control	5	batch 4	5 PXD007160-Sample-9	PXD007160-Sample-9-TMT128C		1
+PXD007160-Sample-9-TMT128N	Control	4	batch 4	4 PXD007160-Sample-9	PXD007160-Sample-9-TMT128N		1
+PXD007160-Sample-9-TMT129C	Parkinson's disease	7	batch 4	7 PXD007160-Sample-9	PXD007160-Sample-9-TMT129C		1
+PXD007160-Sample-9-TMT129N	Parkinson's disease	6	batch 4	6 PXD007160-Sample-9	PXD007160-Sample-9-TMT129N		1
+PXD007160-Sample-9-TMT130C	Alzheimer's disease	9	batch 4	9 PXD007160-Sample-9	PXD007160-Sample-9-TMT130C		1
+PXD007160-Sample-9-TMT130N	Alzheimer's disease	8	batch 4	8 PXD007160-Sample-9	PXD007160-Sample-9-TMT130N		1
+PXD007160-Sample-9-TMT131	Global Internal Standard	0	batch 4	10 PXD007160-Sample-9	PXD007160-Sample-9-TMT131		1
+PXD007160-Sample-10-TMT126	Global Internal Standard	0	batch 5	1 PXD007160-Sample-10	PXD007160-Sample-10-TMT126		1
+PXD007160-Sample-10-TMT127C	Alzheimer's disease	3	batch 5	3 PXD007160-Sample-10	PXD007160-Sample-10-TMT127C		1
+PXD007160-Sample-10-TMT127N	Alzheimer's disease	2	batch 5	2 PXD007160-Sample-10	PXD007160-Sample-10-TMT127N		1
+PXD007160-Sample-10-TMT128C	Control	5	batch 5	5 PXD007160-Sample-10	PXD007160-Sample-10-TMT128C		1
+PXD007160-Sample-10-TMT128N	Control	4	batch 5	4 PXD007160-Sample-10	PXD007160-Sample-10-TMT128N		1
+PXD007160-Sample-10-TMT129C	Parkinson's disease	7	batch 5	7 PXD007160-Sample-10	PXD007160-Sample-10-TMT129C		1
+PXD007160-Sample-10-TMT129N	Parkinson's disease	6	batch 5	6 PXD007160-Sample-10	PXD007160-Sample-10-TMT129N		1
+PXD007160-Sample-10-TMT130C	Alzheimer's disease	9	batch 5	9 PXD007160-Sample-10	PXD007160-Sample-10-TMT130C		1
+PXD007160-Sample-10-TMT130N	Alzheimer's disease	8	batch 5	8 PXD007160-Sample-10	PXD007160-Sample-10-TMT130N		1
+PXD007160-Sample-10-TMT131	Global Internal Standard	0	batch 5	10 PXD007160-Sample-10	PXD007160-Sample-10-TMT131		1

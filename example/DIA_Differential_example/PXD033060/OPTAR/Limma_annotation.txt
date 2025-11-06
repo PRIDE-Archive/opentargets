@@ -1,0 +1,33 @@
+Raw.file	Condition	BioReplicate	Batch	Experiment	Sample name
+20171027_Set1_02_312	Control	1	batch 1	Control1	PXD033060-Sample-1
+20171027_Set1_12_071	Control	2	batch 1	Control2	PXD033060-Sample-2
+20171027_Set1_13_035	Control	3	batch 1	Control3	PXD033060-Sample-3
+20171027_Set1_1996_132	Control	4	batch 1	Control4	PXD033060-Sample-4
+20171031_Set2_08_084	Control	5	batch 1	Control5	PXD033060-Sample-5
+20171031_Set2_96_030	Control	6	batch 1	Control6	PXD033060-Sample-6
+20171031_Set2_96_057	Control	7	batch 1	Control7	PXD033060-Sample-7
+20171031_Set2_98_262	Control	8	batch 1	Control8	PXD033060-Sample-8
+20171128_Set3.1_12_070_contr	Control	9	batch 1	Control9	PXD033060-Sample-9
+20171128_Set3.2_13_011_contr	Control	10	batch 1	Control10	PXD033060-Sample-10
+20171128_Set3.5_02_249_contr	Control	11	batch 1	Control11	PXD033060-Sample-11
+20171128_Set3.6_02_093_contr	Control	12	batch 1	Control12	PXD033060-Sample-12
+20180403_Set4.1_15_087_cont	Control	13	batch 1	Control13	PXD033060-Sample-13
+20180403_Set4.2_12_129_cont	Control	14	batch 1	Control14	PXD033060-Sample-14
+20180403_Set4.3_98_038_cont	Control	15	batch 1	Control15	PXD033060-Sample-15
+20180403_Set4.6_00_036_cont	Control	16	batch 1	Control16	PXD033060-Sample-16
+20180403_Set4.8_01_103_cont	Control	17	batch 1	Control17	PXD033060-Sample-17
+20171027_Set1_12_072	Semantic dementia	18	batch 1	Semantic dementia1	PXD033060-Sample-18
+20171027_Set1_12_124	Semantic dementia	19	batch 1	Semantic dementia2	PXD033060-Sample-19
+20171027_Set1_14_023	Semantic dementia	20	batch 1	Semantic dementia3	PXD033060-Sample-20
+20171027_Set1_2010_009	Semantic dementia	21	batch 1	Semantic dementia4	PXD033060-Sample-21
+20171031_Set2_00_215	Semantic dementia	22	batch 1	Semantic dementia5	PXD033060-Sample-22
+20171031_Set2_09_184	Semantic dementia	23	batch 1	Semantic dementia6	PXD033060-Sample-23
+20171031_Set2_12_128	Semantic dementia	24	batch 1	Semantic dementia7	PXD033060-Sample-24
+20171031_Set2_98_223	Semantic dementia	25	batch 1	Semantic dementia8	PXD033060-Sample-25
+20171128_Set3.3_09_205_case	Semantic dementia	26	batch 1	Semantic dementia9	PXD033060-Sample-26
+20171128_Set3.4_07_017_case	Semantic dementia	27	batch 1	Semantic dementia10	PXD033060-Sample-27
+20171128_Set3.7_97_151_case	Semantic dementia	28	batch 1	Semantic dementia11	PXD033060-Sample-28
+20171128_Set3.8_02_152_case	Semantic dementia	29	batch 1	Semantic dementia12	PXD033060-Sample-29
+20180403_Set4.4_16_079	Semantic dementia	30	batch 1	Semantic dementia13	PXD033060-Sample-30
+20180403_Set4.5_94_058	Semantic dementia	31	batch 1	Semantic dementia14	PXD033060-Sample-31
+20180403_Set4.7_16_077	Semantic dementia	32	batch 1	Semantic dementia15	PXD033060-Sample-32
