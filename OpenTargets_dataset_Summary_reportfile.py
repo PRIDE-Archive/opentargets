@@ -180,7 +180,7 @@ Postprocessed = ProteinGroups.copy()
 label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
-        SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'exclude', 'not available']),'assayGroup'].unique().tolist()
+        SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'blank', 'exclude', 'not available']),'assayGroup'].unique().tolist()
     internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
