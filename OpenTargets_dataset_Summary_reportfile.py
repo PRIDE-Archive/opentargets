@@ -791,19 +791,7 @@ if diffExp == 1:
     #expr_limma_trans = expr_limma_corrected.copy().T
     #umap_plotdata = perform_UMAP(expr_limma_trans)
     umap_plotdata = perform_UMAP(expr_limma_corrected)
-    '''
-    # change NaN to 0. UMAP does not handle NaN
-    expr_limma_trans[np.isnan(expr_limma_trans)] = 0
-    # Initialize UMAP, Fit and transform
-    umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
 
-    umap_plotdata = pd.DataFrame(umap_plotdata,
-                                 columns=["UMAP1", "UMAP2"],
-                                 index=expr_limma_corrected.columns.tolist())
-
-    umap_plotdata.index.name = 'assayId'
-    umap_plotdata = umap_plotdata.reset_index()
-    '''
     umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
     umap_plotdata = pd.merge(umap_plotdata, umap_sample_map, on='assayId')
     umap_plotdata['Batch'] = batch
@@ -827,27 +815,6 @@ if diffExp == 1:
         Figure6_caption = "Figure 6: UMAP of iBAQ expression."
 
     fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
-
-    '''
-    ## PCA
-    pca = PCA(n_components=2)
-    pca_df = pca.fit_transform(expr_limma_trans)
-    pca_df = pd.DataFrame(data=pca_df,
-                          columns=['PC1', 'PC2'],
-                          index=expr_limma_trans.index.tolist())
-    pca_df['assayId'] = pca_df.index.tolist()
-    pca_df = pd.merge(pca_df, unique_sample_names, on='assayId')
-    pca_df['Sample'] = pca_df['assayGroup'].str.replace(r'\d+', '', regex=True).str.strip()
-    pca_df['Sample'] = pca_df['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
-    pca_df['Sample'] = pca_df['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
-    pca_df['Batch'] = batch
-
-    sb.scatterplot(data=pca_df, x="PC1", y="PC2", hue="Sample", style="Batch")
-    plt.title("PCA")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-    plt.tight_layout()
-    #plt.show()
-    '''
 
     ## Differential expression
     print("Performing differential expression analysis.")
