@@ -31,7 +31,7 @@ base = importr("base")
 diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 0
+test = 1
 
 def checktype():
     if diffExp == 1:
@@ -59,9 +59,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD020192/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD016999/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD020192.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD016999.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +69,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "33107741"
-provider = "Di Meo A, Sohaei D et al."
-emailID = "eleftherios.diamandis@sinaihealth.ca"
+pubmedId = "32916130"
+provider = "Jiang L, Wang M. etal."
+emailID = "mpsnyder@stanford.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (baseline)"
+quantificationMethod = "TMT (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -176,16 +176,16 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 # Fraction Of Total (FOT) normalisation
 Postprocessed = ProteinGroups.copy()
 
-# If TMT dataset
+# If TMT/iTRAQ dataset
 label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
 if label.any():
     internal_standard_labels = SDRF.loc[
         SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'blank', 'exclude', 'not available']),'assayGroup'].unique().tolist()
-    internal_standard_labels = ['Reporter intensity ' + x for x in internal_standard_labels]
+    internal_standard_labels = ["Reporter intensity " + x for x in internal_standard_labels]
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
     intensity_cols = Postprocessed.columns[
-        Postprocessed.columns.str.contains("Reporter intensity \d+", regex=True)
+        Postprocessed.columns.str.contains(r"Reporter intensity \d+", regex=True)
     ].tolist()
 
 else:
@@ -295,12 +295,14 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 if label.any():
     # For TMT channels mention disease
     if "factor value[disease]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
+        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
         mapping_table.rename(columns={'assayId': 'sample name',
+                                      'comment[label]': 'label',
                                       'factor value[disease]': 'assay name'}, inplace=True)
     elif "factor value[organism part]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
+        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
         mapping_table.rename(columns={'assayId': 'sample name',
+                                      'comment[label]':'label',
                                       'factor value[organism part]': 'assay name'}, inplace=True)
     else:
         mapping_table = SDRF[['disease', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
@@ -317,6 +319,8 @@ else:
     mapping_table.rename(columns={'assayId': 'sample name',
                                   'assayGroup': 'assay name'}, inplace=True)
 
+numb_of_samples = len(Postprocessed_iBAQ.columns[3:].drop_duplicates())
+
 maptab, ax6 = plt.subplots(figsize=(8, 10))
 ax6.axis('off')
 ax6.table(cellText=mapping_table.values,
@@ -330,10 +334,10 @@ ax6.table(cellText=mapping_table.values,
 ######################
 # Create summary table
 table = {
-    'Pre-processed': [len(source_names), len(contams), len(entraps), len(revdeco),
+    'Pre-processed': [numb_of_samples, len(contams), len(entraps), len(revdeco),
                       Preprocessed_num_of_identified_proteins, Preprocessed_num_of_mapped_peptides,
                       "NA", Preprocessed_num_of_unique_peptides],
-    'Post-processed*': [len(source_names), 0, 0, 0,
+    'Post-processed*': [numb_of_samples, 0, 0, 0,
                         Postprocessed_num_of_identified_proteins, Postprocessed_num_of_mapped_peptides,
                         len(Postprocessed), Postprocessed_num_of_unique_peptides]
 }
