@@ -31,7 +31,7 @@ base = importr("base")
 diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 1
+test = 0
 
 def checktype():
     if diffExp == 1:
@@ -636,10 +636,10 @@ ax7 = fig6.add_subplot(111)
 
 sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="factors", style="factors")
 
-if umap_plotdata.shape[0] > 25:
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
-else:
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+#if umap_plotdata.shape[0] > 25:
+#   plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
+#else:
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
 ax7.set_title('UMAP')
 plt.tight_layout(rect=[0, 0.1, 1, 0.95])
