@@ -285,6 +285,12 @@ unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
 
 Postprocessed_iBAQ = Postprocessed_iBAQ.rename(columns=rename_dict)
+
+# Merge replicates of same sample names by aggregating them using median
+Postprocessed_iBAQ_ids = Postprocessed_iBAQ.iloc[:, :3]
+Postprocessed_iBAQ_agg = Postprocessed_iBAQ.iloc[:, 3:].groupby(Postprocessed_iBAQ.columns[3:], axis=1).median()
+Postprocessed_iBAQ = pd.concat([Postprocessed_iBAQ_ids, Postprocessed_iBAQ_agg], axis=1)
+
 source_names = Postprocessed_iBAQ.columns[3:].tolist()
 
 # Sort alphabetically by Gene names
