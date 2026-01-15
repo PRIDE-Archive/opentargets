@@ -1,6 +1,7 @@
 import re
 import sys
 import mygene
+import time
 import pandas as pd
 import seaborn as sb
 import numpy as np
@@ -19,6 +20,7 @@ from rpy2.robjects.packages import importr
 import rpy2.robjects as ro
 import umap.umap_ as umap
 from adjustText import adjust_text
+from requests.exceptions import RequestException
 
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
@@ -28,7 +30,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 0
+diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -59,9 +61,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD016999/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD014372/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD016999.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD014372.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -69,11 +71,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "32916130"
-provider = "Jiang L, Wang M. etal."
-emailID = "mpsnyder@stanford.edu"
+pubmedId = "33049317"
+provider = "Stepler KE, Mahoney ER. et al."
+emailID = "rena.as.robinson@vanderbilt.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (baseline)"
+quantificationMethod = "TMT (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -109,7 +111,7 @@ sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
 
-optar_result_dir = os.path.join(path, "MaxQuant/")
+optar_result_dir = os.path.join(path, "MaxQuant_BatchCorrected/")
 os.makedirs(optar_result_dir, exist_ok=True)
 
 # write to a file
@@ -179,9 +181,29 @@ Postprocessed = ProteinGroups.copy()
 # If TMT/iTRAQ dataset
 label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
 if label.any():
-    internal_standard_labels = SDRF.loc[
-        SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'blank', 'exclude', 'not available']),'assayGroup'].unique().tolist()
-    internal_standard_labels = ["Reporter intensity " + x for x in internal_standard_labels]
+    #internal_standard_labels = SDRF.loc[
+    #    SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'blank', 'exclude', 'not available']),'assayGroup'].unique().tolist()
+    #internal_standard_labels = ["Reporter intensity " + x for x in internal_standard_labels]
+
+    excludelabels = [
+        'global internal standard', 'gis', 'pool',
+        'empty', 'blank', 'exclude', 'not available'
+    ]
+    mask = (
+            SDRF['tissue'].fillna('').str.lower().isin(excludelabels)
+            | SDRF['disease'].fillna('').str.lower().isin(excludelabels)
+    )
+    internal_standard_labels = (
+        SDRF.loc[mask, 'assayGroup']
+        .unique()
+        .tolist()
+    )
+
+    internal_standard_labels = [
+        "Reporter intensity " + x
+        for x in internal_standard_labels
+    ]
+
     # remove intensities of Internal Standard TMT channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
     intensity_cols = Postprocessed.columns[
@@ -223,13 +245,32 @@ if test == 1:
     Postprocessed = Postprocessed.head(50)
 
 # Map UniProt protein IDs to Ensembl Gene IDs
+def querymany_with_retry(
+    ids,
+    retries=5,
+    base_sleep=5,
+    **kwargs
+):
+    for attempt in range(1, retries + 1):
+        try:
+            return mg.querymany(ids, **kwargs)
+        except (RequestException, Exception) as e:
+            if attempt == retries:
+                raise
+            sleep_time = base_sleep * attempt
+            print(f"Attempt {attempt} failed: {e}")
+            print(f"Retrying in {sleep_time} seconds...")
+            time.sleep(sleep_time)
+
+
 def map_GeneID(proteingroup):
     id = proteingroup['Protein IDs']
     split_IDs = id.split(';')
     #all_PIDs = [PID.split('|')[1] for PID in split_IDs]
     all_PIDs = [PID.split('|')[1] if '|' in PID else PID for PID in split_IDs]
 
-    tmp = mg.querymany(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
+    #tmp = mg.querymany(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
+    tmp = querymany_with_retry(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
 
     if 'notfound' in tmp:
         tmp_ENSG = pd.NA
@@ -687,10 +728,11 @@ plt.axis('off')
 
 #############################
 # Limma Batch effect correction
-def limma_batchEffect(ibaq_matrix, batch_annotation):
+def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
     matrix_df = ibaq_matrix.copy()
     batch = batch_annotation.copy()
+    condition = condition_inp.copy()
 
     # Activate the R-Python interface
     # Load R libraries
@@ -703,9 +745,14 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
 
+    # Convert and assign condition to R as a factor
+    globalenv['condition'] = FactorVector(condition)
+    #print(globalenv['condition'])
+
     # Run removeBatchEffect
     print("Performing Limma batch correction")
-    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
+    #ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
+    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch, group=condition)')
 
     # Get the result from R back to Python
     with localconverter(default_converter + pandas2ri.converter):
@@ -743,6 +790,7 @@ if diffExp == 1:
 
     batch_annotation = batch_annotation.sort_values(by="Sample name")
     batch = batch_annotation['Batch'].tolist()
+    condition = batch_annotation['Condition'].tolist()
 
     # IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
     ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
@@ -751,7 +799,7 @@ if diffExp == 1:
 
     # Perform limma batch effect correction only if there are more than 1 batch.
     if num_of_batches > 1:
-        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch)
+        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
     else:
         expr_limma_corrected = ibaq_matrix.copy()
 
