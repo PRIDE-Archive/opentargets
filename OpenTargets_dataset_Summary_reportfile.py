@@ -116,7 +116,7 @@ sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
 
-optar_result_dir = os.path.join(path, "MaxQuant_BatchCorrected/")
+optar_result_dir = os.path.join(path, "PostProcessed_Result/")
 os.makedirs(optar_result_dir, exist_ok=True)
 
 # write to a file
