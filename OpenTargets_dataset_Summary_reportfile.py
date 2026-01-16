@@ -33,7 +33,7 @@ base = importr("base")
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 0
+test = 1
 
 def checktype():
     if diffExp == 1:
@@ -98,6 +98,11 @@ SDRF.rename(columns={'source name': 'assayId',
                      'characteristics[sex]': 'sex',
                      'characteristics[age]': 'age'}, inplace=True)
 
+# If TMT/iTRAQ dataset
+label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
+if label.any():
+    SDRF['assayId'] = SDRF[['assayId', 'comment[label]']].astype(str).agg("-".join, axis=1)
+
 sub_SDRF = SDRF[["assayId", "assayGroup", "tissue",
                  "disease", "individual", "technical replicate", "sex", "age",
                  "experimentId", "experimentType", "species", "speciesOntURI",
@@ -111,7 +116,7 @@ sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
 
-optar_result_dir = os.path.join(path, "MaxQuant_BatchCorrected/")
+optar_result_dir = os.path.join(path, "MaxQuant_TRIAL_BatchCorrected/")
 os.makedirs(optar_result_dir, exist_ok=True)
 
 # write to a file
@@ -178,13 +183,9 @@ ProteinGroups = ProteinGroups[ProteinGroups['Unique peptides'] > 1]
 # Fraction Of Total (FOT) normalisation
 Postprocessed = ProteinGroups.copy()
 
-# If TMT/iTRAQ dataset
-label = SDRF['comment[label]'].str.contains('TMT|iTRAQ', case=False, na=False)
+# In TMT/iTRAQ datasets remove intensities of Internal Standard channels from downstream postprocessing
 if label.any():
-    #internal_standard_labels = SDRF.loc[
-    #    SDRF['tissue'].str.lower().isin(['global internal standard', 'gis', 'pool', 'empty', 'blank', 'exclude', 'not available']),'assayGroup'].unique().tolist()
-    #internal_standard_labels = ["Reporter intensity " + x for x in internal_standard_labels]
-
+    # remove intensities of Internal Standard channels from downstream postprocessing
     excludelabels = [
         'global internal standard', 'gis', 'pool',
         'empty', 'blank', 'exclude', 'not available'
@@ -198,13 +199,12 @@ if label.any():
         .unique()
         .tolist()
     )
-
     internal_standard_labels = [
         "Reporter intensity " + x
         for x in internal_standard_labels
     ]
 
-    # remove intensities of Internal Standard TMT channels from downstream postprocessing
+    # remove intensities of Internal Standard channels from downstream postprocessing
     Postprocessed = Postprocessed.drop(columns=internal_standard_labels)
     intensity_cols = Postprocessed.columns[
         Postprocessed.columns.str.contains(r"Reporter intensity \d+", regex=True)
@@ -266,10 +266,8 @@ def querymany_with_retry(
 def map_GeneID(proteingroup):
     id = proteingroup['Protein IDs']
     split_IDs = id.split(';')
-    #all_PIDs = [PID.split('|')[1] for PID in split_IDs]
     all_PIDs = [PID.split('|')[1] if '|' in PID else PID for PID in split_IDs]
 
-    #tmp = mg.querymany(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
     tmp = querymany_with_retry(all_PIDs, scopes="uniprot", fields='ensembl.gene,symbol', species='human', as_dataframe=True)
 
     if 'notfound' in tmp:
@@ -340,21 +338,19 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 ######################
 # Sample name to source name map table for report summary document
 if label.any():
-    # For TMT channels mention disease
-    if "factor value[disease]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
-        mapping_table.rename(columns={'assayId': 'sample name',
+    # For TMT or iTRAQ channels if any factors mention them
+
+    if "factors" in SDRF.columns:
+        mapping_table = SDRF[['factors', 'assayId', 'individual', 'comment[label]',
+                              'technical replicate']].drop_duplicates()
+        mapping_table.rename(columns={'factors': 'assay name',
+                                      'assayId': 'sample name',
                                       'comment[label]': 'label',
                                       'factor value[disease]': 'assay name'}, inplace=True)
-    elif "factor value[organism part]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
-        mapping_table.rename(columns={'assayId': 'sample name',
-                                      'comment[label]':'label',
-                                      'factor value[organism part]': 'assay name'}, inplace=True)
     else:
         mapping_table = SDRF[['disease', 'assayId', 'individual', 'technical replicate']].drop_duplicates()
-        mapping_table.rename(columns={'assayId': 'sample name',
-                                      'disease': 'assay name'}, inplace=True)
+        mapping_table.rename(columns={'disease': 'assay name',
+                                      'assayId': 'sample name'}, inplace=True)
 
     mapping_table = mapping_table[mapping_table['sample name'].isin(source_names)]
     #mapping_table = mapping_table.sort_values(by='sample name')
@@ -661,39 +657,39 @@ def perform_UMAP(inp_expr_df):
     umap_plotdata.index.name = 'assayId'
     umap_plotdata = umap_plotdata.reset_index()
 
-
     return(umap_plotdata)
 
 
 ##############################################
 # Figure 6. UMAP (baseline)
 ##############################################
-print("Performing UMAP.")
-UMAP_iBAQ = Postprocessed_iBAQ.copy()
-UMAP_iBAQ = UMAP_iBAQ[source_names].set_index(
-        UMAP_iBAQ[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
+if diffExp == 0:
+    print("Performing UMAP.")
+    UMAP_iBAQ = Postprocessed_iBAQ.copy()
+    UMAP_iBAQ = UMAP_iBAQ[source_names].set_index(
+            UMAP_iBAQ[['ENSG', 'Gene Symbol', 'Protein IDs']].agg('+'.join, axis=1))
 
-umap_plotdata = perform_UMAP(UMAP_iBAQ)
+    umap_plotdata = perform_UMAP(UMAP_iBAQ)
 
-umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
-umap_plotdata = umap_plotdata.sort_values(by="factors")
+    umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
+    umap_plotdata = umap_plotdata.sort_values(by="factors")
 
-fig6 = plt.figure(figsize=(7, 7))
-ax7 = fig6.add_subplot(111)
+    fig6 = plt.figure(figsize=(7, 7))
+    ax7 = fig6.add_subplot(111)
 
-sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="factors", style="factors")
+    sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="factors", style="factors")
 
-#if umap_plotdata.shape[0] > 25:
-#   plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
-#else:
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    #if umap_plotdata.shape[0] > 25:
+    #plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
+    #else:
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
-ax7.set_title('UMAP')
-plt.tight_layout(rect=[0, 0.1, 1, 0.95])
+    ax7.set_title('UMAP')
+    plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
-Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+    Figure6_caption = "Figure 6: UMAP of iBAQ expression."
 
-fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
+    fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
 
 glossary = """
@@ -725,7 +721,6 @@ plt.axis('off')
 
 ##########################################
 # Differential Expression Analysis section
-
 #############################
 # Limma Batch effect correction
 def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
@@ -747,7 +742,6 @@ def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
     # Convert and assign condition to R as a factor
     globalenv['condition'] = FactorVector(condition)
-    #print(globalenv['condition'])
 
     # Run removeBatchEffect
     print("Performing Limma batch correction")
@@ -768,8 +762,19 @@ def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
 if diffExp == 1:
     # read batch annotation file
-    batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
-    batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
+    #batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
+    #batch_annotation = batch_annotation[['Sample name', 'Condition', 'Batch', 'Experiment']].drop_duplicates()
+    batch_annotation = SDRF[['assayId','factors','comment[batch]','assayGroup']].drop_duplicates()
+    batch_annotation.rename(columns={'assayId': 'Sample name',
+                                     'factors': 'Condition',
+                                     'comment[batch]': 'Batch',
+                                     'assayGroup': 'Experiment'}, inplace=True)
+
+    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
+    # check if any values are missing the prefix 'batch ' if yes then add prefix
+    mask = ~batch_annotation['Batch'].astype(str).str.startswith("batch")
+    batch_annotation.loc[mask, 'Batch'] = "batch " + batch_annotation.loc[mask, 'Batch'].astype(str)
+
     ibaq_matrix = Postprocessed_iBAQ.copy()
 
     ibaq_matrix = ibaq_matrix[source_names].set_index(
