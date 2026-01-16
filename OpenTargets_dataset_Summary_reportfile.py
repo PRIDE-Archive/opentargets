@@ -339,7 +339,7 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 # Sample name to source name map table for report summary document
 if label.any():
     # For TMT or iTRAQ channels if any factors mention them
-
+    
     if "factors" in SDRF.columns:
         mapping_table = SDRF[['factors', 'assayId', 'individual', 'comment[label]',
                               'technical replicate']].drop_duplicates()
@@ -863,6 +863,7 @@ if diffExp == 1:
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'_', ' ', regex=True).str.strip()
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Asymptomatic', 'Asym', regex=True)
     umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Alzheimer\'s disease', 'AD', regex=True)
+    umap_plotdata['Sample'] = umap_plotdata['Sample'].str.replace(r'(?i)Cerebrospinal fluid', 'CSF', regex=True)
 
     fig6 = plt.figure(figsize=(7, 7))
     ax7 = fig6.add_subplot(111)
@@ -887,7 +888,7 @@ if diffExp == 1:
     expr_limma_corrected = expr_limma_corrected[batch_annotation["Sample name"].values]
 
     # no spaces or special characters (except _ ) for conditions, limma does not allow special characters
-    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+|\'|,', '', regex=True).str.strip()
+    batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+|\'|,|-', '', regex=True).str.strip()
     group = batch_annotation['Condition'].tolist()
 
     with localconverter(default_converter + pandas2ri.converter):
