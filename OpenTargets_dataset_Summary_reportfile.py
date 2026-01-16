@@ -33,7 +33,7 @@ base = importr("base")
 diffExp = 1
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
-test = 1
+test = 0
 
 def checktype():
     if diffExp == 1:
@@ -116,7 +116,7 @@ sdrf_json = (sub_SDRF.groupby(['experimentId', 'experimentType', 'species',
              .reset_index(name='experimentalDesigns')
              .to_dict('records'))
 
-optar_result_dir = os.path.join(path, "MaxQuant_TRIAL_BatchCorrected/")
+optar_result_dir = os.path.join(path, "MaxQuant_BatchCorrected/")
 os.makedirs(optar_result_dir, exist_ok=True)
 
 # write to a file
@@ -761,13 +761,13 @@ def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
 
 if diffExp == 1:
-    # read batch annotation file
+    # read batch annotations from SDRF
     #batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
     #batch_annotation = batch_annotation[['Sample name', 'Condition', 'Batch', 'Experiment']].drop_duplicates()
-    batch_annotation = SDRF[['assayId','factors','comment[batch]','assayGroup']].drop_duplicates()
+    batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
     batch_annotation.rename(columns={'assayId': 'Sample name',
                                      'factors': 'Condition',
-                                     'comment[batch]': 'Batch',
+                                     'comment[batch identifier]': 'Batch',
                                      'assayGroup': 'Experiment'}, inplace=True)
 
     # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
@@ -803,6 +803,7 @@ if diffExp == 1:
     num_of_batches = batch_annotation['Batch'].nunique()
 
     # Perform limma batch effect correction only if there are more than 1 batch.
+    # Limma complains If only 1 batch is supplied for correction
     if num_of_batches > 1:
         expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
     else:
