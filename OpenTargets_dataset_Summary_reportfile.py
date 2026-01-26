@@ -339,7 +339,18 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 # Sample name to source name map table for report summary document
 if label.any():
     # For TMT or iTRAQ channels if any factors mention them
-    
+    '''
+    if "factor value[disease]" in SDRF.columns:
+        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
+        mapping_table.rename(columns={'assayId': 'sample name',
+                                      'comment[label]': 'label',
+                                      'factor value[disease]': 'assay name'}, inplace=True)
+    elif "factor value[organism part]" in SDRF.columns:
+        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
+        mapping_table.rename(columns={'assayId': 'sample name',
+                                      'comment[label]':'label',
+                                      'factor value[organism part]': 'assay name'}, inplace=True)
+    '''
     if "factors" in SDRF.columns:
         mapping_table = SDRF[['factors', 'assayId', 'individual', 'comment[label]',
                               'technical replicate']].drop_duplicates()
@@ -737,6 +748,11 @@ def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
     with localconverter(default_converter + pandas2ri.converter):
         globalenv['expr'] = ro.conversion.py2rpy(matrix_df)
 
+    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
+    # check if any values are missing the prefix 'batch ' . If yes then add prefix
+    batch_var = pd.Series(batch).astype(str)
+    batch = batch_var.where(batch_var.str.startswith("batch "), "batch " + batch_var)
+
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
 
@@ -764,16 +780,17 @@ if diffExp == 1:
     # read batch annotations from SDRF
     #batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
     #batch_annotation = batch_annotation[['Sample name', 'Condition', 'Batch', 'Experiment']].drop_duplicates()
+
+    #Check if SDRF has 'batch identifier' column
+    #if not, then by default treat all experiments as one batch
+    if "comment[batch identifier]" not in SDRF.columns:
+        SDRF["comment[batch identifier]"] = "1"
+
     batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
     batch_annotation.rename(columns={'assayId': 'Sample name',
                                      'factors': 'Condition',
                                      'comment[batch identifier]': 'Batch',
                                      'assayGroup': 'Experiment'}, inplace=True)
-
-    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
-    # check if any values are missing the prefix 'batch ' if yes then add prefix
-    mask = ~batch_annotation['Batch'].astype(str).str.startswith("batch")
-    batch_annotation.loc[mask, 'Batch'] = "batch " + batch_annotation.loc[mask, 'Batch'].astype(str)
 
     ibaq_matrix = Postprocessed_iBAQ.copy()
 
@@ -787,14 +804,14 @@ if diffExp == 1:
     # Check: find if any samples are missing in the annotation
     missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
     if missing_samples:
-        raise ValueError(f"Samples in ibaq_matrix not found in batch annotation file: {missing_samples}\n")
+        raise ValueError(f"Samples in ibaq_matrix are not found in SDRF: {missing_samples}\n")
 
     colnames = ibaq_matrix.columns.tolist()
     matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
     batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
 
     batch_annotation = batch_annotation.sort_values(by="Sample name")
-    batch = batch_annotation['Batch'].tolist()
+    batch = batch_annotation['Batch'].astype(str).tolist()
     condition = batch_annotation['Condition'].tolist()
 
     # IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
@@ -803,7 +820,7 @@ if diffExp == 1:
     num_of_batches = batch_annotation['Batch'].nunique()
 
     # Perform limma batch effect correction only if there are more than 1 batch.
-    # Limma complains If only 1 batch is supplied for correction
+    # Limma complains if only 1 batch is supplied for batch correction
     if num_of_batches > 1:
         expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
     else:
@@ -849,11 +866,8 @@ if diffExp == 1:
     #plt.tight_layout()
 
     ## UMAP (differential)
-
     print("Performing UMAP.")
     # transpose to have rows as samples and columns as features (genes, peptides, etc.).
-    #expr_limma_trans = expr_limma_corrected.copy().T
-    #umap_plotdata = perform_UMAP(expr_limma_trans)
     umap_plotdata = perform_UMAP(expr_limma_corrected)
 
     umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
@@ -885,20 +899,24 @@ if diffExp == 1:
     print("Performing differential expression analysis.")
 
     # Arrange expr_limma_corrected matrix columns in the same order as batch annotation
-    expr_limma_corrected = expr_limma_corrected[batch_annotation["Sample name"].values]
+    #expr_limma_corrected = expr_limma_corrected[batch_annotation["Sample name"].values]
 
     # no spaces or special characters (except _ ) for conditions, limma does not allow special characters
     batch_annotation['Condition'] = batch_annotation['Condition'].str.replace(r'\s+|\'|,|-', '', regex=True).str.strip()
     group = batch_annotation['Condition'].tolist()
 
     with localconverter(default_converter + pandas2ri.converter):
-        globalenv['limma_expr_df'] = ro.conversion.py2rpy(expr_limma_corrected)
+        #globalenv['limma_expr_df'] = ro.conversion.py2rpy(expr_limma_corrected)
+        # use uncorrected exp matrix
+        globalenv['limma_expr_df'] = ro.conversion.py2rpy(ibaq_matrix)
     globalenv['group'] = ro.FactorVector(group)
+    globalenv['batch'] = ro.FactorVector(batch)
 
     # Code in R to calculate differential log Fold Change
     ro.r('''
-    design <- model.matrix(~ 0 + group)
-    colnames(design) <- levels(group)
+    design <- model.matrix(~ 0 + group + batch)
+    #colnames(design) <- levels(group)
+    colnames(design)[seq_along(levels(group))] <- levels(group)
     group_levels <- levels(group)
     contrast_pairs <- combn(group_levels, 2, simplify = FALSE)
 
