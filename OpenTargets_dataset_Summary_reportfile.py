@@ -61,9 +61,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD014372/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD010138/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD014372.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD010138.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -71,11 +71,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "33049317"
-provider = "Stepler KE, Mahoney ER. et al."
-emailID = "rena.as.robinson@vanderbilt.edu"
+pubmedId = "31207390"
+provider = "Mendonça CF, Kuras M. etal."
+emailID = "gyorgy.marko-varga@bme.lth.se"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (differential)"
+quantificationMethod = "Label-free (differential)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -339,18 +339,6 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
 # Sample name to source name map table for report summary document
 if label.any():
     # For TMT or iTRAQ channels if any factors mention them
-    '''
-    if "factor value[disease]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[disease]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
-        mapping_table.rename(columns={'assayId': 'sample name',
-                                      'comment[label]': 'label',
-                                      'factor value[disease]': 'assay name'}, inplace=True)
-    elif "factor value[organism part]" in SDRF.columns:
-        mapping_table = SDRF[['factor value[organism part]', 'assayId', 'individual', 'comment[label]', 'technical replicate']].drop_duplicates()
-        mapping_table.rename(columns={'assayId': 'sample name',
-                                      'comment[label]':'label',
-                                      'factor value[organism part]': 'assay name'}, inplace=True)
-    '''
     if "factors" in SDRF.columns:
         mapping_table = SDRF[['factors', 'assayId', 'individual', 'comment[label]',
                               'technical replicate']].drop_duplicates()
@@ -488,7 +476,6 @@ def convertToJSON(df):
     postprocessed_json = sorted(postprocessed_json, key=lambda x: x["Gene Symbol"])
 
     return(postprocessed_json)
-
 
 if diffExp != 1:
     # Write Post-processed baseline abundance matrix
@@ -784,6 +771,8 @@ if diffExp == 1:
     #Check if SDRF has 'batch identifier' column
     #if not, then by default treat all experiments as one batch
     if "comment[batch identifier]" not in SDRF.columns:
+        print("comment[batch identifier] is not present in SDRF. By default all experiments are considered as single batch.")
+        print("Batch identifiers example [int]: 1, 2, etc.")
         SDRF["comment[batch identifier]"] = "1"
 
     batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
@@ -914,7 +903,11 @@ if diffExp == 1:
 
     # Code in R to calculate differential log Fold Change
     ro.r('''
-    design <- model.matrix(~ 0 + group + batch)
+    if (nlevels(batch) > 1){
+        design <- model.matrix(~ 0 + group + batch)
+        } else {
+        design <- model.matrix(~ 0 + group)
+        }
     #colnames(design) <- levels(group)
     colnames(design)[seq_along(levels(group))] <- levels(group)
     group_levels <- levels(group)
