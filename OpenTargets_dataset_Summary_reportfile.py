@@ -5,6 +5,7 @@ import time
 import pandas as pd
 import seaborn as sb
 import numpy as np
+import pyarrow
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.preprocessing import StandardScaler
@@ -488,6 +489,11 @@ if diffExp != 1:
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
 
+    # Save to parquet
+    Postprocessed_iBAQ.to_parquet(
+        os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.parquet"),
+        engine="pyarrow")
+
     print("Quant files written.")
 
 ##############################################
@@ -841,6 +847,11 @@ if diffExp == 1:
     postprocessed_json = convertToJSON(matrix_df_long)
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
         json.dump(postprocessed_json, outfile, indent=4)
+
+    # Save to parquet
+    expr_limma_iBAQ.to_parquet(
+        os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.parquet"),
+        engine="pyarrow")
 
     print("Quant files written.")
 
