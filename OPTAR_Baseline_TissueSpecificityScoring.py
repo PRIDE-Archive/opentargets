@@ -201,12 +201,12 @@ fig2 = px.scatter(
 fig2.show()
 fig2.write_html(path+"OTAR_baselinedata_all_umap_plot.html")
 
-
+#######################################
 # Calculate Zscore for each protein within a sample:
 #  i.Calculate Mean of each protein across all samples (population mean)
 #  ii.Calculate Standard Deviation of each protein across all samples (population standard deviation)
 #  iii. ZScore of protein A in PXD1-1_Heart = (ExpA.PXD1-1_Heart - Population Mean of A)/Population Standard Dev of A. Take absolute values
-
+#######################################
 Z_scores = (
     expr_limma_corrected[sample_names]
     .sub(expr_limma_corrected[sample_names].mean(axis=1),axis=0).abs()
@@ -215,8 +215,8 @@ Z_scores = (
 
 sample_median = expr_limma_corrected.median(axis=0, numeric_only=True)
 
-# Calculate Zscore for each protein within a sample:
-# Divide Zcore pf each protein by median of sample
+# Calculate Tissue Specificity Score for each protein within a sample:
+#  by dividing Zcore of each protein by median of sample
 Tissue_Specificity_scores = Z_scores[sample_names].div(sample_median, axis=1)
 
 #######################################
