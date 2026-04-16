@@ -16,6 +16,10 @@ import plotly.express as px
 
 path = "/Users/ananth/Documents/OpenTargets/"
 
+###############################
+# Read all Open Target baseline parquet files from directory
+# and extract only proteomics entries
+###############################
 #table = pq.ParquetDataset(os.path.join(path, "Test_parquet_files")).read()
 #df = table.to_pandas()
 #sub = df[df['datatypeId'] == "mass-spectrometry proteomics"]
