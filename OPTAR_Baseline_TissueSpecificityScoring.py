@@ -95,8 +95,8 @@ limma_filtered = []
 for g in pd.unique(groups_Tissues):
     cols = ibaq_matrix.columns[ibaq_matrix.columns.str.endswith(f"_{g}")]
 
-    # keep only rows (proteins) with less than 10% missing value in each tissue group
-    group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.10
+    # keep only rows (proteins) with less than 20% missing values in each tissue group
+    group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.20
     ibaq_matrix_filtered = ibaq_matrix.loc[group_mask, cols.union(meta_cols)]
 
     sample_names = ibaq_matrix_filtered.columns[ibaq_matrix_filtered.columns.str.contains("PXD", regex=True)].tolist()
