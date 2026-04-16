@@ -190,7 +190,7 @@ ax.legend(
 
 plt.tight_layout()
 
-plt.savefig(path+"OTAR_baselinedata_all_umap_plot.pdf")
+plt.savefig(path+"OTAR_baselineproteomicsdata_all_umap_plot.pdf")
 #plt.show()
 
 ####################
@@ -203,7 +203,7 @@ fig2 = px.scatter(
     hover_data=["datasets", "tissue", "assayId"]
 )
 fig2.show()
-fig2.write_html(path+"OTAR_baselinedata_all_umap_plot.html")
+fig2.write_html(path+"OTAR_baselineproteomicsdata_all_umap_plot.html")
 
 #######################################
 # Calculate Zscore for each protein within a sample:
@@ -277,21 +277,21 @@ All_data_Merged = pd.merge(Limma_TS_merged, OTAR_alldata_clean,
 All_data_Merged = All_data_Merged.drop(columns=['donorTissueId'])
 
 # Save All merged data to tab txt file
-with open(os.path.join(path,"OTAR_baselinedata_AllData_Long.txt"), "w") as outfile:
+with open(os.path.join(path,"OTAR_baselineproteomicsdata_AllData_Long.txt"), "w") as outfile:
     All_data_Merged.to_csv(outfile, sep='\t', index=False)
 
 # Save All merged data to parquet file
 All_data_Merged.to_parquet(
-    os.path.join(path, "OTAR_baselinedata_AllData.parquet")
+    os.path.join(path, "OTAR_baselineproteomicsdata_AllData.parquet")
 )
 
 # Save TSS to tab text file
-with open(os.path.join(path, "OTAR_baselinedata_TissueSpecificityScores.txt"), "w") as outfile:
+with open(os.path.join(path, "OTAR_baselineproteomicsdata_TissueSpecificityScores.txt"), "w") as outfile:
     Tissue_Specificity_scores.to_csv(outfile, sep='\t', index=False)
 
 # Save TSS to parquet file
 Tissue_Specificity_scores.to_parquet(
-    os.path.join(path, "OTAR_baselinedata_TissueSpecificityScores.parquet")
+    os.path.join(path, "OTAR_baselineproteomicsdata_TissueSpecificityScores.parquet")
 )
 
 print("End")
