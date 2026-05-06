@@ -143,6 +143,18 @@ annotation['datasets'] = datasets
 annotation['batch'] = batch
 annotation['tissue'] = tissue
 
+#######
+#UMAP of uncorrected data
+uncorrected_iBAQ = OTAR_wide.copy()
+uncorrected_sample_names = uncorrected_iBAQ.columns[uncorrected_iBAQ.columns.str.contains("PXD", regex=True)].tolist()
+uncorrected_iBAQ = uncorrected_iBAQ[uncorrected_sample_names].set_index(uncorrected_iBAQ[meta_cols].agg('+'.join,axis=1))
+uncorrected_datasets = pd.Series(uncorrected_sample_names).str.replace(r'-.*', '', regex=True).tolist()
+uncorrected_factorcodes = pd.factorize(uncorrected_datasets)[0] + 1
+uncorrected_batch = ['batch' + str(x) for x in uncorrected_factorcodes]
+uncorrected_tissue = pd.Series(uncorrected_sample_names).str.replace(r'.*_', '', regex=True).tolist()
+
+
+
 ##########################################
 # UMAP clustering
 ##########################################
@@ -165,11 +177,28 @@ def perform_UMAP(inp_expr_df):
 
     return(umap_plotdata)
 
-umap_plotdata = perform_UMAP(expr_limma_corrected)
-umap_plotdata = pd.merge(umap_plotdata, annotation, on='assayId')
-umap_plotdata = umap_plotdata.sort_values(by="tissue")
+# Map tissues to organs as in OTAR baseline tissue mapping
+def OTAR_tissue_map(umap_plotdata):
+    Tissue_map = pd.read_csv(os.path.join(path, "Baseline_tissue_mapping.txt"), sep='\t', header=0)
+    Map_expanded = (
+        Tissue_map.assign(
+            Tissue=Tissue_map["Tissue"]
+            .str.split(";")
+        )
+        .explode("Tissue")
+    )
+    Map_expanded["Tissue"] = Map_expanded["Tissue"].str.strip()
+    mapping_dict = Map_expanded.set_index("Tissue")["Organ"].to_dict()
+    umap_plotdata["tissue"] = umap_plotdata["tissue"].map(mapping_dict)
+    umap_plotdata = umap_plotdata.sort_values(by=["tissue", "datasets"])
+    return(umap_plotdata)
 
 ## Plot UMAP
+# 1. batch-corrected data
+umap_plotdata = perform_UMAP(expr_limma_corrected)
+umap_plotdata = pd.merge(umap_plotdata, annotation, on='assayId')
+umap_plotdata = OTAR_tissue_map(umap_plotdata)
+
 fig1, ax = plt.subplots(figsize=(10,8.5))
 
 sb.scatterplot(
@@ -180,7 +209,7 @@ sb.scatterplot(
     style="datasets",
     ax=ax
 )
-
+ax.set_title("Limma Batch-Corrected UMAP Projection by Tissue and Dataset")
 ax.legend(
     loc='center left',
     bbox_to_anchor=(1.02, 0.5),
@@ -190,7 +219,7 @@ ax.legend(
 
 plt.tight_layout()
 
-plt.savefig(path+"OTAR_baselineproteomicsdata_all_umap_plot.pdf")
+plt.savefig(path+"OTAR_baselineproteomicsdata_batchcorrected_umap_plot.pdf")
 #plt.show()
 
 ####################
@@ -200,10 +229,52 @@ fig2 = px.scatter(
     x="UMAP1",
     y="UMAP2",
     color="tissue",
-    hover_data=["datasets", "tissue", "assayId"]
+    hover_data=["datasets", "tissue", "assayId"],
+    title="Limma Batch-Corrected UMAP Projection by Tissue and Dataset"
 )
 fig2.show()
-fig2.write_html(path+"OTAR_baselineproteomicsdata_all_umap_plot.html")
+fig2.write_html(path+"OTAR_baselineproteomicsdata_batchcorrected_umap_plot.html")
+
+# 2. Uncorrected data
+umap_plotdata = perform_UMAP(uncorrected_iBAQ)
+umap_plotdata = pd.merge(umap_plotdata, annotation, on='assayId')
+umap_plotdata = OTAR_tissue_map(umap_plotdata)
+
+fig3, ax = plt.subplots(figsize=(10,8.5))
+
+sb.scatterplot(
+    data=umap_plotdata,
+    x="UMAP1",
+    y="UMAP2",
+    hue="tissue",
+    style="datasets",
+    ax=ax
+)
+ax.set_title("Batch Uncorrected UMAP Projection by Tissue and Dataset")
+ax.legend(
+    loc='center left',
+    bbox_to_anchor=(1.02, 0.5),
+    ncol=2,
+    frameon=False
+)
+
+plt.tight_layout()
+
+plt.savefig(path+"OTAR_baselineproteomicsdata_Uncorrected_umap_plot.pdf")
+#plt.show()
+
+####################
+# Save UMAP as interactive HTML
+fig4 = px.scatter(
+    umap_plotdata,
+    x="UMAP1",
+    y="UMAP2",
+    color="tissue",
+    hover_data=["datasets", "tissue", "assayId"],
+    title="Batch UnCorrected UMAP Projection by Tissue and Dataset"
+)
+fig4.show()
+fig4.write_html(path+"OTAR_baselineproteomicsdata_Uncorrected_umap_plot.html")
 
 #######################################
 # Calculate Zscore for each protein within a sample:
