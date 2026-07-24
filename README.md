@@ -1,37 +1,97 @@
 # opentargets
 
-Steps for Proteomics Data processing <br>
-<br>
+# Proteomics Data Processing Pipeline
 
-Step1. Dataset selection<br>
-Complete list of datasets in the PRIDE database (https://www.ebi.ac.uk/pride/) were listed using the PRIDE API<br>
-Run Download_PRIDE_Datasets.py<br>
-The datasets in the resulting tsv were manually filtered using this dataset selection criteria:<br>
-https://github.com/PRIDE-Archive/opentargets/blob/main/guidelines/Dataset_Selection.md<br>
-<br>
+This repository contains the workflow used for selecting, processing, and post-processing public proteomics datasets from the PRIDE database for integration into the Open Targets Platform.
 
-Step2. SDRF (Sample to Data Relationship Format)<br>
-Sample metadata annotation of shortlisted dataasets to follow SDRF guidelines - https://github.com/bigbio/proteomics-sample-metadata/blob/master/sdrf-proteomics/README.adoc<br>
-Annotated sample metadata of processed files: https://github.com/PRIDE-Archive/opentargets/tree/main/sdrf<br>
-<br>
+---
 
-Step3. Process datasets<br>
-Process raw files in MaxQuant - <br>
-"Experiment" field in MaxQuant should be same as "assay name" field in SDRF<br>
-Process raw files in DIA-NN - <br>
-<br>
+## Step 1. Dataset Selection
 
-Step4. Postprocess results<br>
-For postprocessing DDA results from MaxQuant - use OpenTargets_dataset_Summary_reportfile.py <br>
-required files - proteinGroups.txt; SDRF <br>
+The complete list of datasets in the PRIDE database was obtained using the PRIDE API.
 
-For postprocessing DIA results from DIA-NN - use OpenTargets_DIA_Summary_report.py <br>
-required files - report.tsv; SDRF <br>
+**Run:**
 
-Summary of postprocess results<br>
-For DDA/TMT/iTRAQ from MaxQuant use: OpenTargets_dataset_Summary_reportfile.py<br>
-For DIA from DIA-NN use: OpenTargets_DIA_Summary_report.py<br>
+```bash
+Download_PRIDE_Datasets.py
+```
 
-Raw and Postprocess results on FTP<br>
-https://ftp.pride.ebi.ac.uk/pub/databases/pride/resources/proteomes/otargets/<br>
+The resulting TSV file was manually filtered according to the dataset selection criteria:
+
+- https://github.com/PRIDE-Archive/opentargets/blob/main/guidelines/Dataset_Selection.md
+
+---
+
+## Step 2. SDRF (Sample and Data Relationship Format)
+
+Annotate sample metadata according to the SDRF guidelines.
+
+**SDRF specification**
+
+- https://github.com/bigbio/proteomics-sample-metadata/blob/master/sdrf-proteomics/README.adoc
+
+**Annotated SDRF files**
+
+- https://github.com/PRIDE-Archive/opentargets/tree/main/sdrf
+
+---
+
+## Step 3. Process Datasets
+
+### DDA (MaxQuant)
+
+Process raw files using **MaxQuant**.
+
+> **Important:** The **Experiment** field in MaxQuant **must exactly match** the **assay name** field in the SDRF file.
+
+### DIA (DIA-NN)
+
+Process raw files using **DIA-NN**.
+
+---
+
+## Step 4. Post-process Results
+
+### DDA (MaxQuant)
+
+Run:
+
+```bash
+OpenTargets_dataset_Summary_reportfile.py
+```
+
+**Required input files**
+
+- `proteinGroups.txt`
+- SDRF file
+
+### DIA (DIA-NN)
+
+Run:
+
+```bash
+OpenTargets_DIA_Summary_report.py
+```
+
+**Required input files**
+
+- `report.tsv`
+- SDRF file
+
+---
+
+## Summary of Post-processing Scripts
+
+| Data Type | Script |
+|-----------|--------|
+| DDA / TMT / iTRAQ | `OpenTargets_dataset_Summary_reportfile.py` |
+| DIA | `OpenTargets_DIA_Summary_report.py` |
+
+---
+
+## Processed Data
+
+Raw and post-processed results are available from the PRIDE FTP server:
+
+https://ftp.pride.ebi.ac.uk/pub/databases/pride/resources/proteomes/otargets/
 
