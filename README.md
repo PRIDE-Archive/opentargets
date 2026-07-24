@@ -42,7 +42,7 @@ Annotate sample metadata according to the SDRF guidelines.
 
 Process raw files using **MaxQuant**.
 
-> **Important:** The **Experiment** field in MaxQuant **must exactly match** the **assay name** field in the SDRF file.
+> **Important:** The **assay name** field in the SDRF file **must exactly match** the **Experiment** field in MaxQuant.
 
 ### DIA (DIA-NN)
 
