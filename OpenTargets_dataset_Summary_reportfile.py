@@ -31,7 +31,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 1
+diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -62,9 +62,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD010138/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD062642/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD010138.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD062642.sdrf.tsv"), sep='\t', header=0)
 
 samples = (SDRF['source name'].unique().tolist())
 dataset = SDRF['comment[proteomexchange accession number]'].unique()[0]
@@ -72,15 +72,15 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "31207390"
-provider = "Mendonça CF, Kuras M. etal."
-emailID = "gyorgy.marko-varga@bme.lth.se"
+pubmedId = "41533574"
+provider = "Mun DG, Madugundu AK. etal."
+emailID = "pandey.akhilesh@mayo.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (differential)"
+quantificationMethod = "Label-free (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
-analysisSoftware = "MaxQuant v2.7.0.0"
+analysisSoftware = "MaxQuant v2.7.5.0"
 operatingSystem = "Red Hat Enterprise Linux Server"
 
 SDRF['experimentId'] = dataset
@@ -328,7 +328,20 @@ Postprocessed_iBAQ = Postprocessed_iBAQ.rename(columns=rename_dict)
 
 # Merge replicates of same sample names by aggregating them using median
 Postprocessed_iBAQ_ids = Postprocessed_iBAQ.iloc[:, :3]
-Postprocessed_iBAQ_agg = Postprocessed_iBAQ.iloc[:, 3:].groupby(Postprocessed_iBAQ.columns[3:], axis=1).median()
+#Postprocessed_iBAQ_agg = Postprocessed_iBAQ.iloc[:, 3:].groupby(Postprocessed_iBAQ.columns[3:], axis=1).median()
+
+Postprocessed_iBAQ_agg = (
+    Postprocessed_iBAQ.iloc[:, 3:]
+    .T
+    .groupby(Postprocessed_iBAQ.columns[3:])
+    .median()
+    .T
+)
+
+# Write Post-processed results matrix
+with open(os.path.join(optar_result_dir, dataset + "_Postprocessed_ppb_TEMP.txt"), 'w') as outfile:
+    Postprocessed_iBAQ_agg.to_csv(outfile, sep='\t', index=False)
+
 Postprocessed_iBAQ = pd.concat([Postprocessed_iBAQ_ids, Postprocessed_iBAQ_agg], axis=1)
 
 source_names = Postprocessed_iBAQ.columns[3:].tolist()
