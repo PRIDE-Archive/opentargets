@@ -60,9 +60,9 @@ testing()
 
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD022872/OPTAR/"
+path = "/Users/ananth/Documents/ElisaIbarra/PXD077998/"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD022872-dia.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD077998-dia.sdrf.tsv"), sep='\t', header=0)
 remove_samples = SDRF.loc[SDRF["source name"].str.contains("Sample-XX", case=False, na=False), "assay name"]
 SDRF = SDRF[~SDRF["source name"].str.contains("Sample-XX", na=False)]
 
@@ -72,16 +72,16 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "35799292"
-provider = "Miedema SSM, Mol MO. etal."
-emailID = "guus.smit@vu.nl"
+pubmedId = "not available"
+provider = "Elisa Ibarra Carral. etal."
+emailID = "elisa.carral@isciii.es"
 experimentType = "Proteomics by mass spectrometry"
 quantificationMethod = "Label-free (differential)"
-searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
+searchDatabase = "Human 'one protein per gene set' proteome (UniProt, May 2026. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
 dialibrary = "Insilico predicted spectral library"
-analysisSoftware = "DIA-NN v1.8.1"
+analysisSoftware = "DIA-NN v2.5.0"
 operatingSystem = "Red Hat Enterprise Linux Server"
 
 SDRF['experimentId'] = dataset
@@ -145,7 +145,8 @@ metatab.text(0.02, 0.95, 'Summary of reanalysed PRIDE Mass Spectrometry proteomi
 
 ############################################
 # Read "Report.tsv" quant files from DIA-NN
-report_quant = pd.read_csv(os.path.join(path, "report.tsv"), sep='\t', header=0)
+#report_quant = pd.read_csv(os.path.join(path, "Report.tsv"), sep='\t', header=0)
+report_quant = pd.read_parquet(os.path.join(path,'Report.parquet'))
 report_quant = report_quant[~report_quant["Run"].isin(remove_samples)]
 report_quant["Run"] = report_quant["Run"].str.replace("20180403_Set4.6_00_036_cont-20180403_Set4.6_06_036_cont", "20180403_Set4.6_00_036_cont", regex=False)
 
@@ -163,24 +164,56 @@ if missing_samples:
 # To CHECK: if sample names in proteinGroups are missing in SDRF?
 missing_in_sdrf = [col for col in quant_samples if col not in sdrf_samples]
 if missing_in_sdrf:
-    print("Warning: These iBAQ samples in report.tsv are missing from SDRF.\n"
-          "Only samples mentioned in SDRF[sample name] will be processed.\n")
+    print("Warning: These iBAQ samples in report.tsv are missing from SDRF.\n")
     print(missing_in_sdrf)
+    print("Only samples mentioned in SDRF[sample name] will be processed.\n")
+
+#remove values in 'Run' column of report.quant that are in 'missing_in_sdrf'
+report_quant = report_quant[~report_quant["Run"].isin(missing_in_sdrf)]
 
 number_of_samples = SDRF["assayId"].nunique()
+
 prefilter_number_of_decoys = report_quant[report_quant["Protein.Ids"].str.contains("DECOY", regex=False)]["Protein.Ids"].nunique()
-prefilter_number_of_contaminants = report_quant[report_quant["Protein.Ids"].str.contains("CONTAM", regex=False)]["Protein.Ids"].nunique()
-prefilter_number_of_entraps = report_quant[report_quant["Protein.Ids"].str.contains("ENTRAP", regex=False)]["Protein.Ids"].nunique()
+
+#prefilter_number_of_contaminants = report_quant[report_quant["Protein.Ids"].str.contains("CONTAM", regex=False)]["Protein.Ids"].nunique()
+contams = report_quant[
+    ~report_quant["Protein.Ids"].str.contains("_HUMAN|_ARATH", regex=True, na=False)
+    &
+    ~report_quant["Protein.Names"].str.contains("_HUMAN|_ARATH", regex=True, na=False)
+]["Protein.Ids"].drop_duplicates()
+
+prefilter_number_of_contaminants = contams.nunique()
+
+#prefilter_number_of_entraps = report_quant[report_quant["Protein.Ids"|"Protein.Names"].str.contains("ENTRAP|_ARATH", regex=True)]["Protein.Ids"].nunique()
+entraps = report_quant[
+    report_quant["Protein.Ids"].str.contains("ENTRAP|_ARATH", regex=True, na=False)
+    |
+    report_quant["Protein.Names"].str.contains("ENTRAP|_ARATH", regex=True, na=False)
+]["Protein.Ids"].drop_duplicates()
+
+prefilter_number_of_entraps = entraps.nunique()
+
 prefilter_number_of_PSMs = len(report_quant)
 prefilter_number_of_unique_peptides = report_quant["Stripped.Sequence"].nunique()
 prefilter_number_of_proteins = report_quant["Protein.Ids"].nunique()
 prefilter_number_of_genes = report_quant["Genes"].nunique()
 
-report_quant_submatrix = report_quant[["Run", "Protein.Ids", "Genes", "Genes.Normalised",
-                                       "Stripped.Sequence"]].drop_duplicates()
+# remove decoys/contams/entraps
+exclude = pd.concat([contams, entraps]).drop_duplicates()
 
-# remove decoys
-report_quant_submatrix = report_quant_submatrix[~report_quant_submatrix["Protein.Ids"].str.contains("DECOY|CONTAM|ENTRAP", regex=True)]
+report_quant_submatrix = report_quant[
+    ~report_quant["Protein.Ids"].isin(exclude)
+    &
+    ~report_quant["Protein.Names"].isin(exclude)
+].copy()
+
+# NOTE: New version of DIA-NN (2.5.0) no longer supports Genes.Normalised quantification and suggests using Genes.MAxLFQ instead.
+#report_quant_submatrix = report_quant[["Run", "Protein.Ids", "Genes", "Genes.Normalised",
+#                                       "Stripped.Sequence"]].drop_duplicates()
+
+report_quant_submatrix = report_quant_submatrix[["Run", "Protein.Ids", "Genes", "Genes.MaxLFQ",
+                                                "Stripped.Sequence"]].drop_duplicates()
+
 # remove more than one gene mappings or protein ids
 report_quant_submatrix = report_quant_submatrix[~report_quant_submatrix["Genes"].astype(str).str.contains(";", regex=False)]
 report_quant_submatrix = report_quant_submatrix[~report_quant_submatrix["Protein.Ids"].astype(str).str.contains(";", regex=False)]
@@ -214,7 +247,8 @@ report_quant_submatrix = report_quant_submatrix.drop(columns=["Stripped.Sequence
 report_quant_submatrix = report_quant_submatrix.groupby(["Run", "Protein.Ids", "Genes"], as_index=False).median()
 report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes"],
                                                            columns="Run",
-                                                           values="Genes.Normalised").reset_index()
+                                                           values="Genes.MaxLFQ").reset_index()
+# Replaced Genes.Normalised with Genes.MaxLFQ (see above line 179)
 
 """
 report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes", "Stripped.Sequence"],
@@ -601,10 +635,11 @@ plt.axis('off')
 #############################
 # Limma Batch effect correction
 
-def limma_batchEffect(ibaq_matrix, batch_annotation):
+def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
     matrix_df = ibaq_matrix.copy()
     batch = batch_annotation.copy()
+    condition = condition_inp.copy()
 
     # Activate the R-Python interface
     # Load R libraries
@@ -614,12 +649,21 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
     with localconverter(default_converter + pandas2ri.converter):
         globalenv['expr'] = ro.conversion.py2rpy(matrix_df)
 
+    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
+    # check if any values are missing the prefix 'batch ' . If yes then add prefix
+    batch_var = pd.Series(batch).astype(str)
+    batch = batch_var.where(batch_var.str.startswith("batch "), "batch " + batch_var)
+
     # Convert and assign batch to R as a factor
     globalenv['batch'] = FactorVector(batch)
 
+    # Convert and assign condition to R as a factor
+    globalenv['condition'] = FactorVector(condition)
+
     # Run removeBatchEffect
     print("Performing Limma batch correction")
-    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
+    #ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
+    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch, group=condition)')
 
     # Get the result from R back to Python
     with localconverter(default_converter + pandas2ri.converter):
@@ -635,13 +679,39 @@ def limma_batchEffect(ibaq_matrix, batch_annotation):
 
 if diffExp == 1:
     # read batch annotation file
-    batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
-    batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
+    #batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
+    #batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
+
+    #Check if SDRF has 'batch identifier' column
+    #if not, then by default treat all experiments as one batch
+    if "comment[batch identifier]" not in SDRF.columns:
+        print("comment[batch identifier] is not present in SDRF. By default all experiments are considered as single batch.")
+        print("Batch identifiers example [int]: 1, 2, etc.")
+        SDRF["comment[batch identifier]"] = "1"
+
+    batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
+    batch_annotation.rename(columns={'assayId': 'Sample name',
+                                     'factors': 'Condition',
+                                     'comment[batch identifier]': 'Batch',
+                                     'assayGroup': 'Experiment'}, inplace=True)
+
     ibaq_matrix = iBAQ_quant.copy()
 
-    iBAQ_cols = iBAQ_quant.columns[3:]
-    ibaq_matrix = ibaq_matrix[iBAQ_cols].set_index(
-        ibaq_matrix[['ENSG', 'Genes', 'Protein.Ids']].astype(str).agg('+'.join, axis=1))
+    iBAQ_cols = ibaq_matrix.columns[3:]
+
+    #NOTE tO do: Add 15% missing values filer
+    #group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.15
+
+    protein_index = (
+            ibaq_matrix['ENSG'].astype('string').fillna('nan')
+            + '+'
+            + ibaq_matrix['Genes'].astype('string').fillna('nan')
+            + '+'
+            + ibaq_matrix['Protein.Ids'].astype('string').fillna('nan')
+    )
+
+    ibaq_matrix = ibaq_matrix[iBAQ_cols].copy()
+    ibaq_matrix.index = protein_index
 
     ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
     # IMPORTANT: Log transform iBAQ values before Batch Effect correction and Differential Expression.
@@ -657,7 +727,8 @@ if diffExp == 1:
     batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
 
     batch_annotation = batch_annotation.sort_values(by="Sample name")
-    batch = batch_annotation['Batch'].tolist()
+    batch = batch_annotation['Batch'].astype(str).tolist()
+    condition = batch_annotation['Condition'].tolist()
 
     # IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
     ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
@@ -665,8 +736,9 @@ if diffExp == 1:
     num_of_batches = batch_annotation['Batch'].nunique()
 
     # Perform limma batch effect correction only if there are more than 1 batch.
+    # Limma complains if only 1 batch is supplied for batch correction
     if num_of_batches > 1:
-        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch)
+        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
     else:
         expr_limma_corrected = ibaq_matrix.copy()
 
