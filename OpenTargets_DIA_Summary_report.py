@@ -28,7 +28,7 @@ base = importr("base")
 
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
-diffExp = 1
+diffExp = 0
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
@@ -60,9 +60,9 @@ testing()
 
 
 
-path = "/Users/ananth/Documents/ElisaIbarra/PXD077998/"
+path = "/Users/ananth/Documents/OpenTargets/PXD047742"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD077998-dia.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD047742-dia.sdrf.tsv"), sep='\t', header=0)
 remove_samples = SDRF.loc[SDRF["source name"].str.contains("Sample-XX", case=False, na=False), "assay name"]
 SDRF = SDRF[~SDRF["source name"].str.contains("Sample-XX", na=False)]
 
@@ -72,11 +72,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "not available"
-provider = "Elisa Ibarra Carral. etal."
-emailID = "elisa.carral@isciii.es"
+pubmedId = "39127789"
+provider = "Hyeon-Jeong Lee. etal."
+emailID = "hjl@kist.re.kr"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (differential)"
+quantificationMethod = "DIA"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, May 2026. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -603,6 +603,62 @@ plt.figtext(0.5, 0.01,
             "The pairwise Pearson correlation was calculated between normalised intensities (iBAQs) of each sample and clustered hierarchically.",
             wrap=True, ha='center', fontsize=10)
 
+#### UMAP
+##########################################
+def perform_UMAP(inp_expr_df):
+    inp_expr = inp_expr_df.copy()
+    # transpose to have rows as samples and columns as features (genes, peptides, etc.).
+    inp_expr_trans = inp_expr.T
+    # change NaN to 0. UMAP does not handle NaN
+    inp_expr_trans[np.isnan(inp_expr_trans)] = 0
+    # Initialize UMAP, Fit and transform
+    umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(inp_expr_trans)
+
+    umap_plotdata = pd.DataFrame(umap_plotdata,
+                             columns=["UMAP1", "UMAP2"],
+                             index=inp_expr.columns.tolist())
+
+    umap_plotdata.index.name = 'assayId'
+    umap_plotdata = umap_plotdata.reset_index()
+
+    return (umap_plotdata)
+
+##############################################
+# Figure 6. UMAP (baseline)
+##############################################
+if diffExp == 0:
+    print("Performing UMAP.")
+    UMAP_iBAQ = iBAQ_quant.copy()
+
+    source_names = UMAP_iBAQ.columns[3:].tolist()
+    UMAP_iBAQ = UMAP_iBAQ[source_names].set_index(
+        UMAP_iBAQ[['ENSG', 'Genes', 'Protein.Ids']]
+        .agg(lambda x: ' + '.join(map(str, x)), axis=1))
+        #.astype(str)
+        #.agg('+'.join, axis=1))
+
+    umap_plotdata = perform_UMAP(UMAP_iBAQ)
+
+    umap_plotdata = pd.merge(umap_plotdata, unique_sample_names, on='assayId')
+    umap_plotdata = umap_plotdata.sort_values(by="factors")
+
+    fig6 = plt.figure(figsize=(7, 7))
+    ax7 = fig6.add_subplot(111)
+
+    sb.scatterplot(data=umap_plotdata, x="UMAP1", y="UMAP2", hue="factors", style="factors")
+
+    # if umap_plotdata.shape[0] > 25:
+    # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., ncol=2)
+    # else:
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+    ax7.set_title('UMAP')
+    plt.tight_layout(rect=[0, 0.1, 1, 0.95])
+
+    Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+
+    fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
+
 glossary = """
 Post-processing filters applied:
  (i) Remove reverse decoys.
@@ -783,19 +839,22 @@ if diffExp == 1:
 
     ## UMAP
     print("Performing UMAP.")
-    # transpose to have rows as samples and columns as features (genes, peptides, etc.).
-    expr_limma_trans = expr_limma_corrected.copy().T
+    ## transpose to have rows as samples and columns as features (genes, peptides, etc.).
+    #expr_limma_trans = expr_limma_corrected.copy().T
     # change NaN to 0. UMAP does not handle NaN
-    expr_limma_trans[np.isnan(expr_limma_trans)] = 0
+    #expr_limma_trans[np.isnan(expr_limma_trans)] = 0
     # Initialize UMAP, Fit and transform
-    umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
+    #umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
 
-    umap_plotdata = pd.DataFrame(umap_plotdata,
-                                 columns=["UMAP1", "UMAP2"],
-                                 index=expr_limma_corrected.columns.tolist())
+    #umap_plotdata = pd.DataFrame(umap_plotdata,
+    #                             columns=["UMAP1", "UMAP2"],
+    #                             index=expr_limma_corrected.columns.tolist())
 
-    umap_plotdata.index.name = 'assayId'
-    umap_plotdata = umap_plotdata.reset_index()
+    #umap_plotdata.index.name = 'assayId'
+    #umap_plotdata = umap_plotdata.reset_index()
+
+    umap_plotdata = perform_UMAP(expr_limma_corrected)
+
     umap_sample_map = unique_sample_names.drop(columns=["assayGroup"]).drop_duplicates()
     umap_plotdata = pd.merge(umap_plotdata, umap_sample_map, on='assayId')
     umap_plotdata['Batch'] = batch
@@ -977,16 +1036,15 @@ with PdfPages(optar_result_dir + dataset + '_OpenTargets_Summary_report.pdf') as
 
     pdf.savefig(fig5.fig, bbox_inches='tight')
 
+    pdf.savefig(fig6, bbox_inches='tight')
+    plt.close(fig6)
+
     if(diffExp == 1):
-
-        pdf.savefig(fig6, bbox_inches='tight')
-        plt.close(fig6)
-
         for name, fig7 in volcanoplots.items():
             pdf.savefig(fig7, bbox_inches='tight')
             plt.close(fig7)
 
-    if(diffExp == 1):
+    if (diffExp == 1):
         pdf.savefig(batch_annot_tab, bbox_inches='tight')
         plt.close(batch_annot_tab)
     else:
