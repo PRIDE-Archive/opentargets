@@ -19,6 +19,7 @@ from rpy2.robjects.packages import importr
 import rpy2.robjects as ro
 import umap.umap_ as umap
 from adjustText import adjust_text
+import plotly.express as px
 
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
@@ -76,8 +77,8 @@ pubmedId = "39127789"
 provider = "Hyeon-Jeong Lee. etal."
 emailID = "hjl@kist.re.kr"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "DIA"
-searchDatabase = "Human 'one protein per gene set' proteome (UniProt, May 2026. 20,656 sequences)"
+quantificationMethod = "DIA (baseline)"
+searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
 dialibrary = "Insilico predicted spectral library"
@@ -146,7 +147,7 @@ metatab.text(0.02, 0.95, 'Summary of reanalysed PRIDE Mass Spectrometry proteomi
 ############################################
 # Read "Report.tsv" quant files from DIA-NN
 #report_quant = pd.read_csv(os.path.join(path, "Report.tsv"), sep='\t', header=0)
-report_quant = pd.read_parquet(os.path.join(path,'Report.parquet'))
+report_quant = pd.read_parquet(os.path.join(path,'report.parquet'))
 report_quant = report_quant[~report_quant["Run"].isin(remove_samples)]
 report_quant["Run"] = report_quant["Run"].str.replace("20180403_Set4.6_00_036_cont-20180403_Set4.6_06_036_cont", "20180403_Set4.6_00_036_cont", regex=False)
 
@@ -173,16 +174,17 @@ report_quant = report_quant[~report_quant["Run"].isin(missing_in_sdrf)]
 
 number_of_samples = SDRF["assayId"].nunique()
 
-prefilter_number_of_decoys = report_quant[report_quant["Protein.Ids"].str.contains("DECOY", regex=False)]["Protein.Ids"].nunique()
+decoys = report_quant[
+    report_quant["Protein.Ids"].str.contains("DECOY", regex=False)
+    |
+    report_quant["Protein.Names"].str.contains("DECOY", regex=False)]["Protein.Ids"].drop_duplicates()
 
 #prefilter_number_of_contaminants = report_quant[report_quant["Protein.Ids"].str.contains("CONTAM", regex=False)]["Protein.Ids"].nunique()
 contams = report_quant[
-    ~report_quant["Protein.Ids"].str.contains("_HUMAN|_ARATH", regex=True, na=False)
-    &
-    ~report_quant["Protein.Names"].str.contains("_HUMAN|_ARATH", regex=True, na=False)
+    report_quant["Protein.Ids"].str.contains("CONTAM", regex=True, na=False)
+    |
+    report_quant["Protein.Names"].str.contains("CONTAM", regex=True, na=False)
 ]["Protein.Ids"].drop_duplicates()
-
-prefilter_number_of_contaminants = contams.nunique()
 
 #prefilter_number_of_entraps = report_quant[report_quant["Protein.Ids"|"Protein.Names"].str.contains("ENTRAP|_ARATH", regex=True)]["Protein.Ids"].nunique()
 entraps = report_quant[
@@ -191,15 +193,16 @@ entraps = report_quant[
     report_quant["Protein.Names"].str.contains("ENTRAP|_ARATH", regex=True, na=False)
 ]["Protein.Ids"].drop_duplicates()
 
+prefilter_number_of_decoys = decoys.nunique()
+prefilter_number_of_contaminants = contams.nunique()
 prefilter_number_of_entraps = entraps.nunique()
-
 prefilter_number_of_PSMs = len(report_quant)
 prefilter_number_of_unique_peptides = report_quant["Stripped.Sequence"].nunique()
 prefilter_number_of_proteins = report_quant["Protein.Ids"].nunique()
 prefilter_number_of_genes = report_quant["Genes"].nunique()
 
 # remove decoys/contams/entraps
-exclude = pd.concat([contams, entraps]).drop_duplicates()
+exclude = pd.concat([decoys, contams, entraps]).drop_duplicates()
 
 report_quant_submatrix = report_quant[
     ~report_quant["Protein.Ids"].isin(exclude)
@@ -273,27 +276,62 @@ report_quant_submatrix_wide = report_quant_submatrix_wide.groupby(["Protein.Ids"
 if test == 1:
     report_quant_submatrix_wide = report_quant_submatrix_wide.head(50)
 
+########## Gene mapping from file ###########
 # Map UniProt protein IDs to Ensembl Gene IDs
-def map_GeneID(proteingroup):
-    id = proteingroup['Protein.Ids']
-    split_IDs = id.split(';')
-    all_PIDs = [PID.split('|')[1] if '|' in PID else PID for PID in split_IDs]
+# 1. lookup table from the reference dataframe (have to be updated every Uniprot release)
+gene_df = pd.read_csv("/Users/ananth/Documents/OpenTargets/human_and_arabidopsis_gene_proteins_id_map_Uniprot_2026_03.txt", sep='\t', header=0)
 
-    tmp = mg.querymany(all_PIDs, scopes="uniprot", fields='ensembl.gene', species='human', as_dataframe=True)
+gene_lookup = (
+    gene_df[['Entry', 'ENSG', 'Gene Symbol']]
+    .drop_duplicates(subset='Entry', keep='first')
+    .set_index('Entry')
+)
 
-    if 'notfound' in tmp:
-        tmp_ENSG = pd.NA
-    else:
-        if 'ensembl.gene' in tmp.columns:
-            tmp_ENSG = ";".join(tmp['ensembl.gene'].dropna().unique().astype(str))
-        else:
-            tmp_ENSG = pd.NA
+# 2. Split Protein IDs into individual IDs
+df_exploded = report_quant_submatrix_wide.copy()
+df_exploded['_row'] = range(len(df_exploded))
 
-    return tmp_ENSG
+df_exploded['Protein.Ids'] = (
+    df_exploded['Protein.Ids']
+    .fillna('')
+    .str.split(';')
+)
 
-report_quant_submatrix_wide["ENSG"] = report_quant_submatrix_wide.progress_apply(map_GeneID, axis=1)
-report_quant_submatrix_wide["Gene Count"] = report_quant_submatrix_wide["Genes"]\
-    .apply(lambda x: sum(1 for item in x.split(";") if item != "<NA>" and item != ''))
+df_exploded = df_exploded.explode('Protein.Ids')
+df_exploded['Protein.Ids'] = df_exploded['Protein.Ids'].str.strip()
+
+# 3. Match each Protein ID to Entry in the reference dataframe
+df_exploded = df_exploded.join(
+    gene_lookup,
+    on='Protein.Ids'
+)
+
+# 4. Combine multiple ENSG and Gene Names values using ";"
+def join_values(series):
+    values = series.dropna().astype(str)
+    values = values[values.str.strip().ne('')]
+    return ';'.join(values)
+
+gene_info = (
+    df_exploded.groupby('_row', sort=False)
+    .agg({
+        'ENSG': join_values,
+        'Gene Symbol': join_values
+    })
+)
+
+# 5. Add the results back to the original dataframe
+report_quant_submatrix_wide['ENSG'] = gene_info['ENSG'].reindex(range(len(report_quant_submatrix_wide))).to_numpy()
+report_quant_submatrix_wide['Gene Symbol'] = gene_info['Gene Symbol'].reindex(range(len(report_quant_submatrix_wide))).to_numpy()
+report_quant_submatrix_wide[['ENSG', 'Gene Symbol']] = (
+    report_quant_submatrix_wide[['ENSG', 'Gene Symbol']].replace(r'^\s*$', '<NA>', regex=True)
+)
+report_quant_submatrix_wide['Gene Count'] = report_quant_submatrix_wide['Gene Symbol']. \
+    apply(lambda x: sum(1 for item in x.split(";") if item != "<NA>" and item != ''))
+
+
+############################################
+############################################
 
 # Remove protein groups mapped to more than one Gene ID
 report_quant_submatrix_wide = report_quant_submatrix_wide[report_quant_submatrix_wide["Gene Count"] == 1]
@@ -302,7 +340,7 @@ cols = list(report_quant_submatrix_wide.columns)
 cols.insert(2, cols.pop(cols.index("ENSG")))
 report_quant_submatrix_wide = report_quant_submatrix_wide[cols]
 
-report_quant_submatrix_wide = report_quant_submatrix_wide.drop(columns=["Gene Count"])
+report_quant_submatrix_wide = report_quant_submatrix_wide.drop(columns=["Gene Count", "Gene Symbol"])
 
 # Sort alphabetically by Gene names
 report_quant_submatrix_wide = report_quant_submatrix_wide.sort_values(by="Genes")
@@ -459,7 +497,154 @@ def convertToJSON(df):
 
     return(postprocessed_json)
 
+######################################################
+# Limma Batch effect correction
+def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
 
+    matrix_df = ibaq_matrix.copy()
+    batch = batch_annotation.copy()
+    condition = condition_inp.copy()
+
+    # Activate the R-Python interface
+    # Load R libraries
+    ro.r('library(limma)')
+
+    # Convert and assign ibaq_matrix to R
+    with localconverter(default_converter + pandas2ri.converter):
+        globalenv['expr'] = ro.conversion.py2rpy(matrix_df)
+
+    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
+    # check if any values are missing the prefix 'batch ' . If yes then add prefix
+    batch_var = pd.Series(batch).astype(str)
+    batch = batch_var.where(batch_var.str.startswith("batch "), "batch " + batch_var)
+
+    # Convert and assign batch to R as a factor
+    globalenv['batch'] = FactorVector(batch)
+
+    # Convert and assign condition to R as a factor
+    globalenv['condition'] = FactorVector(condition)
+
+    # Run removeBatchEffect
+    print("Performing Limma batch correction")
+    #ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
+    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch, group=condition)')
+
+    # Get the result from R back to Python
+    with localconverter(default_converter + pandas2ri.converter):
+        expr_limma_corrected = ro.conversion.rpy2py(ro.r['expr_corrected'])
+
+    # Assign row and column names
+    expr_limma_corrected = pd.DataFrame(expr_limma_corrected,
+                                        columns=ibaq_matrix.columns,
+                                        index=ibaq_matrix.index)
+
+    return expr_limma_corrected
+
+
+# read batch annotation
+# Check if SDRF has 'batch identifier' column
+# if not, then by default treat all experiments as one batch
+
+if "comment[batch identifier]" not in SDRF.columns:
+    print("comment[batch identifier] is not present in SDRF. By default all experiments are considered as single batch.")
+    print("Batch identifiers example [int]: 1, 2, etc.")
+    SDRF["comment[batch identifier]"] = "1"
+
+batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
+batch_annotation.rename(columns={'assayId': 'Sample name',
+                                 'factors': 'Condition',
+                                 'comment[batch identifier]': 'Batch',
+                                 'assayGroup': 'Experiment'}, inplace=True)
+
+ibaq_matrix = iBAQ_quant.copy()
+iBAQ_cols = ibaq_matrix.columns[3:]
+
+#NOTE tO do: Add 15% missing values filter
+#group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.15
+
+protein_index = (
+        ibaq_matrix['ENSG'].astype('string').fillna('nan')
+        + '+'
+        + ibaq_matrix['Genes'].astype('string').fillna('nan')
+        + '+'
+        + ibaq_matrix['Protein.Ids'].astype('string').fillna('nan')
+)
+
+ibaq_matrix = ibaq_matrix[iBAQ_cols].copy()
+ibaq_matrix.index = protein_index
+
+ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
+
+# IMPORTANT: Log transform iBAQ values before Batch Effect correction and for Differential Expression.
+ibaq_matrix = np.log2(ibaq_matrix + 1)
+
+# Check: find if any samples are missing in the annotation
+missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
+
+if missing_samples:
+    raise ValueError(f"Samples in ibaq_matrix not found in batch annotation file: {missing_samples}\n")
+
+colnames = ibaq_matrix.columns.tolist()
+matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
+batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
+
+batch_annotation = batch_annotation.sort_values(by="Sample name")
+batch = batch_annotation['Batch'].astype(str).tolist()
+condition = batch_annotation['Condition'].tolist()
+
+# IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
+ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
+
+num_of_batches = batch_annotation['Batch'].nunique()
+
+# Perform limma batch effect correction only if there are more than 1 batch.
+# Limma complains if only 1 batch is supplied for batch correction
+if num_of_batches > 1:
+    expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
+else:
+    expr_limma_corrected = ibaq_matrix.copy()
+
+# Reconvert log2 transformed limma corrected values back to save as iBAQ ppb values and Write abundance matrix
+tmp_exp = expr_limma_corrected.copy()
+expr_limma_iBAQ = (2 ** tmp_exp) - 1
+
+expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.replace(r'\+.*', '', regex=True)
+expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ.index.str.replace(r'ENSG\d+\+', '', regex=True)
+expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
+expr_limma_iBAQ['Protein IDs'] = expr_limma_iBAQ.index.str.replace(r'.*\+', '', regex=True)
+cols = expr_limma_iBAQ.columns.tolist()
+column_reorder = cols[-3:] + cols[:-3]
+expr_limma_iBAQ = expr_limma_iBAQ[column_reorder]
+
+matrix_df_long = pd.melt(expr_limma_iBAQ,
+                         id_vars=['ENSG', 'Gene Symbol', 'Protein IDs'],
+                         value_vars=iBAQ_cols,
+                         var_name='Sample',
+                         value_name='FOT normalised iBAQ (ppb)')
+
+# Write Post-processed results matrix
+with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w')as outfile:
+    expr_limma_iBAQ.to_csv(outfile, sep='\t', index=False)
+
+# Write Post-processed results to json to a file
+postprocessed_json = convertToJSON(matrix_df_long)
+with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
+    json.dump(postprocessed_json, outfile, indent=4)
+
+print("Quant files written.")
+
+# Save batch annotation table to summary pdf
+batch_annot_tab, ax9 = plt.subplots(figsize=(8, 10))
+ax9.axis('off')
+ax9.table(cellText=batch_annotation[['Sample name','Condition','Batch']].values,
+          colLabels=batch_annotation[['Sample name','Condition','Batch']].columns,
+          loc='center',
+          cellLoc='left',
+          fontsize=12)
+    #plt.tight_layout()
+
+#############################################################################
+"""
 if diffExp != 1:
     # Write Post-processed baseline abundance matrix
     with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w') as outfile:
@@ -472,17 +657,19 @@ if diffExp != 1:
         json.dump(postprocessed_json, outfile, indent=4)
 
     print("Quant files written.")
-
+"""
 
 ##############################################
 # Figure 2. Protein groups commonly identified across samples
 # count number of proteins identified across all samples
 ##############################################
+iBAQ_quant = expr_limma_iBAQ
+
 iBAQ_quant['protein_count_across_samples'] = (
         (iBAQ_quant.iloc[:, 3:] != 0) &
         (pd.notna(iBAQ_quant.iloc[:, 3:]))).sum(axis=1)
 Proteins_identified_across_samples = iBAQ_quant[
-    ['ENSG', 'Genes', 'Protein.Ids', 'protein_count_across_samples']]
+    ['ENSG', 'Gene Symbol', 'Protein IDs', 'protein_count_across_samples']]
 proteincounts_across_sample = Proteins_identified_across_samples[
     'protein_count_across_samples'].value_counts().sort_index()
 
@@ -632,7 +819,7 @@ if diffExp == 0:
 
     source_names = UMAP_iBAQ.columns[3:].tolist()
     UMAP_iBAQ = UMAP_iBAQ[source_names].set_index(
-        UMAP_iBAQ[['ENSG', 'Genes', 'Protein.Ids']]
+        UMAP_iBAQ[['ENSG', 'Gene Symbol', 'Protein IDs']]
         .agg(lambda x: ' + '.join(map(str, x)), axis=1))
         #.astype(str)
         #.agg('+'.join, axis=1))
@@ -658,6 +845,38 @@ if diffExp == 0:
     Figure6_caption = "Figure 6: UMAP of iBAQ expression."
 
     fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
+
+    ## Interactive UMAP
+
+    fig6_interactive = px.scatter(
+        data_frame=umap_plotdata,
+        x="UMAP1",
+        y="UMAP2",
+        color="factors",
+        symbol="factors",
+        hover_name="assayId",
+        hover_data=["assayId", "factors", "UMAP1", "UMAP2"],
+        title="UMAP of iBAQ expression (Interactive)"
+    )
+
+    fig6_interactive.update_layout(
+        width=900,
+        height=700,
+        legend_title_text="Factors"
+    )
+
+    # Save as a standalone HTML file
+    interactive_umap_file = os.path.join(
+        optar_result_dir,
+        dataset + "_Figure6_UMAP_interactive.html"
+    )
+
+    fig6_interactive.write_html(
+        interactive_umap_file,
+        include_plotlyjs=True
+    )
+
+    print(f"Interactive UMAP saved to: {interactive_umap_file}")
 
 glossary = """
 Post-processing filters applied:
@@ -689,169 +908,10 @@ plt.axis('off')
 ##########################################
 # Differential Expression Analysis section
 #############################
-# Limma Batch effect correction
-
-def limma_batchEffect(ibaq_matrix, batch_annotation, condition_inp):
-
-    matrix_df = ibaq_matrix.copy()
-    batch = batch_annotation.copy()
-    condition = condition_inp.copy()
-
-    # Activate the R-Python interface
-    # Load R libraries
-    ro.r('library(limma)')
-
-    # Convert and assign ibaq_matrix to R
-    with localconverter(default_converter + pandas2ri.converter):
-        globalenv['expr'] = ro.conversion.py2rpy(matrix_df)
-
-    # IMPORTANT: Important that the string 'batch' is prefixed to batch values, else Limma complains
-    # check if any values are missing the prefix 'batch ' . If yes then add prefix
-    batch_var = pd.Series(batch).astype(str)
-    batch = batch_var.where(batch_var.str.startswith("batch "), "batch " + batch_var)
-
-    # Convert and assign batch to R as a factor
-    globalenv['batch'] = FactorVector(batch)
-
-    # Convert and assign condition to R as a factor
-    globalenv['condition'] = FactorVector(condition)
-
-    # Run removeBatchEffect
-    print("Performing Limma batch correction")
-    #ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch)')
-    ro.r('expr_corrected <- removeBatchEffect(expr, batch=batch, group=condition)')
-
-    # Get the result from R back to Python
-    with localconverter(default_converter + pandas2ri.converter):
-        expr_limma_corrected = ro.conversion.rpy2py(ro.r['expr_corrected'])
-
-    # Assign row and column names
-    expr_limma_corrected = pd.DataFrame(expr_limma_corrected,
-                                        columns=ibaq_matrix.columns,
-                                        index=ibaq_matrix.index)
-
-    return expr_limma_corrected
-
 
 if diffExp == 1:
-    # read batch annotation file
-    #batch_annotation = pd.read_csv(os.path.join(path, "Limma_annotation.txt"), sep='\t', header=0)
-    #batch_annotation = batch_annotation[['Sample name','Condition','Batch','Experiment']].drop_duplicates()
-
-    #Check if SDRF has 'batch identifier' column
-    #if not, then by default treat all experiments as one batch
-    if "comment[batch identifier]" not in SDRF.columns:
-        print("comment[batch identifier] is not present in SDRF. By default all experiments are considered as single batch.")
-        print("Batch identifiers example [int]: 1, 2, etc.")
-        SDRF["comment[batch identifier]"] = "1"
-
-    batch_annotation = SDRF[['assayId','factors','comment[batch identifier]','assayGroup']].drop_duplicates()
-    batch_annotation.rename(columns={'assayId': 'Sample name',
-                                     'factors': 'Condition',
-                                     'comment[batch identifier]': 'Batch',
-                                     'assayGroup': 'Experiment'}, inplace=True)
-
-    ibaq_matrix = iBAQ_quant.copy()
-
-    iBAQ_cols = ibaq_matrix.columns[3:]
-
-    #NOTE tO do: Add 15% missing values filer
-    #group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.15
-
-    protein_index = (
-            ibaq_matrix['ENSG'].astype('string').fillna('nan')
-            + '+'
-            + ibaq_matrix['Genes'].astype('string').fillna('nan')
-            + '+'
-            + ibaq_matrix['Protein.Ids'].astype('string').fillna('nan')
-    )
-
-    ibaq_matrix = ibaq_matrix[iBAQ_cols].copy()
-    ibaq_matrix.index = protein_index
-
-    ibaq_matrix = ibaq_matrix.replace('nan', np.nan)
-    # IMPORTANT: Log transform iBAQ values before Batch Effect correction and Differential Expression.
-    ibaq_matrix = np.log2(ibaq_matrix + 1)
-
-    # Check: find if any samples are missing in the annotation
-    missing_samples = set(ibaq_matrix.columns) - set(batch_annotation["Sample name"])
-    if missing_samples:
-        raise ValueError(f"Samples in ibaq_matrix not found in batch annotation file: {missing_samples}\n")
-
-    colnames = ibaq_matrix.columns.tolist()
-    matrix_colnames = pd.DataFrame(colnames, columns=["Sample name"])
-    batch_annotation = pd.merge(matrix_colnames, batch_annotation, on="Sample name")
-
-    batch_annotation = batch_annotation.sort_values(by="Sample name")
-    batch = batch_annotation['Batch'].astype(str).tolist()
-    condition = batch_annotation['Condition'].tolist()
-
-    # IMPORTANT: Sort and arrange iBAQ matrix columns to match and be in the same order as batch_annotation
-    ibaq_matrix = ibaq_matrix[batch_annotation["Sample name"].values]
-
-    num_of_batches = batch_annotation['Batch'].nunique()
-
-    # Perform limma batch effect correction only if there are more than 1 batch.
-    # Limma complains if only 1 batch is supplied for batch correction
-    if num_of_batches > 1:
-        expr_limma_corrected = limma_batchEffect(ibaq_matrix, batch, condition)
-    else:
-        expr_limma_corrected = ibaq_matrix.copy()
-
-    # Reconvert log2 transformed limma corrected values back to save as iBAQ ppb values and Write abundance matrix
-    tmp_exp = expr_limma_corrected.copy()
-    expr_limma_iBAQ = (2 ** tmp_exp) - 1
-
-    expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.replace(r'\+.*', '', regex=True)
-    expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ.index.str.replace(r'ENSG\d+\+', '', regex=True)
-    expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
-    expr_limma_iBAQ['Protein IDs'] = expr_limma_iBAQ.index.str.replace(r'.*\+', '', regex=True)
-    cols = expr_limma_iBAQ.columns.tolist()
-    column_reorder = cols[-3:] + cols[:-3]
-    expr_limma_iBAQ = expr_limma_iBAQ[column_reorder]
-
-    matrix_df_long = pd.melt(expr_limma_iBAQ,
-                             id_vars=['ENSG', 'Gene Symbol', 'Protein IDs'],
-                             value_vars=iBAQ_cols,
-                             var_name='Sample',
-                             value_name='FOT normalised iBAQ (ppb)')
-
-    # Write Post-processed results matrix
-    with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.txt"), 'w')as outfile:
-        expr_limma_iBAQ.to_csv(outfile, sep='\t', index=False)
-
-    # Write Post-processed results to json to a file
-    postprocessed_json = convertToJSON(matrix_df_long)
-    with open(os.path.join(optar_result_dir, dataset + "_OpenTargets_ppb.json"), 'w') as outfile:
-        json.dump(postprocessed_json, outfile, indent=4)
-
-    print("Quant files written.")
-
-    # Save batch annotation table to summary pdf
-    batch_annot_tab, ax9 = plt.subplots(figsize=(8, 10))
-    ax9.axis('off')
-    ax9.table(cellText=batch_annotation[['Sample name','Condition','Batch']].values,
-              colLabels=batch_annotation[['Sample name','Condition','Batch']].columns,
-              loc='center',
-              cellLoc='left',
-              fontsize=12)
-    #plt.tight_layout()
-
     ## UMAP
     print("Performing UMAP.")
-    ## transpose to have rows as samples and columns as features (genes, peptides, etc.).
-    #expr_limma_trans = expr_limma_corrected.copy().T
-    # change NaN to 0. UMAP does not handle NaN
-    #expr_limma_trans[np.isnan(expr_limma_trans)] = 0
-    # Initialize UMAP, Fit and transform
-    #umap_plotdata = umap.UMAP(n_components=2, random_state=42).fit_transform(expr_limma_trans)
-
-    #umap_plotdata = pd.DataFrame(umap_plotdata,
-    #                             columns=["UMAP1", "UMAP2"],
-    #                             index=expr_limma_corrected.columns.tolist())
-
-    #umap_plotdata.index.name = 'assayId'
-    #umap_plotdata = umap_plotdata.reset_index()
 
     umap_plotdata = perform_UMAP(expr_limma_corrected)
 
