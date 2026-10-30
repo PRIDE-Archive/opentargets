@@ -32,9 +32,16 @@ base = importr("base")
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
 diffExp = 0
+
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
+
+# set missing value filter [0 to 1]
+# missingVals = 0 to keep all proteins,
+# missingVals > 0 to keep proteins with maximum % missing values in EVERY sample group
+# example missingVals = 0.15. Keep proteins with maximum 15% missing values in EVERY sample group
+missingVals = 0
 
 def checktype():
     if diffExp == 1:
@@ -62,9 +69,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD015315/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD004678/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD015315.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD004678.sdrf.tsv"), sep='\t', header=0)
 remove_samples = SDRF.loc[
                  SDRF["source name"].str.contains("Sample-XX", case=False, na=False),"assay name"
                  ].drop_duplicates()
@@ -76,11 +83,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "32286271"
-provider = "Kiki Cano-Gamez, Blagoje Soskic. etal."
-emailID = "jw13@sanger.ac.uk"
+pubmedId = "27626665"
+provider = "Worah K, Mathan TS. etal."
+emailID = "edwin.lasonder@plymouth.ac.uk"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "TMT (baseline)"
+quantificationMethod = "Label-free (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -154,8 +161,10 @@ metatab.text(0.02, 0.95, 'Summary of reanalysed PRIDE Mass Spectrometry proteomi
 # 2. Protein Quantification data
 ProteinGroups = pd.read_csv(os.path.join(path, "proteinGroups.txt"), sep='\t', header=0)
 ProteinGroups = ProteinGroups.loc[:, ~ProteinGroups.columns.str.contains("Pool|Exclude|GIS", regex=True)]
-pattern = '|'.join(re.escape(x) for x in remove_samples.dropna())
-ProteinGroups = ProteinGroups.loc[:, ~ProteinGroups.columns.str.contains(pattern, regex=True, na=False)]
+
+if remove_samples.any():
+    pattern = '|'.join(re.escape(x) for x in remove_samples.dropna())
+    ProteinGroups = ProteinGroups.loc[:, ~ProteinGroups.columns.str.contains(pattern, regex=True, na=False)]
 
 # Pre-processed
 contams = ProteinGroups[ProteinGroups['Potential contaminant'].str.contains(r'\+', regex=True, na=False)
@@ -225,7 +234,8 @@ else:
         ~Postprocessed.columns.str.contains("iBAQ peptides", regex=True) &
         (Postprocessed.columns != "iBAQ")
     ].tolist()
-    # To get only those iBAQ columns that are mentioned in SDRF from proteinGroups.
+
+    # To get only those iBAQ columns that are mentioned in SDRF.
     intensity_cols = SDRF['assayGroup'].str.replace(r'^', 'iBAQ ', regex=True).unique().tolist()
 
     #####
@@ -306,8 +316,8 @@ Postprocessed['Gene Count'] = Postprocessed['Gene Symbol']. \
     apply(lambda x: sum(1 for item in x.split(";") if item != "<NA>" and item != ''))
 
 ###########################
+# Filters
 ###########################
-
 
 # Remove protein groups mapped to more than one Gene ID
 Postprocessed = Postprocessed[Postprocessed['Gene Count'] == 1]
@@ -316,10 +326,6 @@ Postprocessed = Postprocessed[Postprocessed['Gene Count'] == 1]
 # Count number of peptides and proteins after post-processed filtering
 Postprocessed_num_of_mapped_peptides = Postprocessed['Peptides'].sum()
 Postprocessed_num_of_unique_peptides = Postprocessed['Unique peptides'].sum()
-
-post_split_IDs = Postprocessed['Protein IDs'].dropna().str.split(';')
-post_allPIDs = [item for sublist in post_split_IDs for item in sublist]
-Postprocessed_num_of_identified_proteins = pd.Series(post_allPIDs).nunique()
 
 selected = ['ENSG', 'Gene Symbol', 'Protein IDs'] + intensity_cols
 
@@ -339,9 +345,8 @@ rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['a
 
 Postprocessed_iBAQ = Postprocessed_iBAQ.rename(columns=rename_dict)
 
-# Merge replicates of same sample names by aggregating them using median
+# Merge technical replicates of same sample names by aggregating them using median
 Postprocessed_iBAQ_ids = Postprocessed_iBAQ.iloc[:, :3]
-#Postprocessed_iBAQ_agg = Postprocessed_iBAQ.iloc[:, 3:].groupby(Postprocessed_iBAQ.columns[3:], axis=1).median()
 
 Postprocessed_iBAQ_agg = (
     Postprocessed_iBAQ.iloc[:, 3:]
@@ -351,16 +356,60 @@ Postprocessed_iBAQ_agg = (
     .T
 )
 
-# Write Post-processed results matrix
-#with open(os.path.join(optar_result_dir, dataset + "_Postprocessed_ppb_TEMP.txt"), 'w') as outfile:
-#    Postprocessed_iBAQ_agg.to_csv(outfile, sep='\t', index=False)
-
 Postprocessed_iBAQ = pd.concat([Postprocessed_iBAQ_ids, Postprocessed_iBAQ_agg], axis=1)
 
 source_names = Postprocessed_iBAQ.columns[3:].tolist()
 
 # Sort alphabetically by Gene names
 Postprocessed_iBAQ = Postprocessed_iBAQ.sort_values(by='Gene Symbol')
+
+
+# Missing values filter
+if missingVals > 0:
+    # Keep only proteins that have 15% or less missing values in ALL sample groups
+    # 1. Define annotation and sample columns
+    annotation_cols = ["Protein IDs", "Gene Symbol", "ENSG"]
+
+    original_sample_order = [
+        col for col in Postprocessed_iBAQ.columns
+        if col not in annotation_cols
+    ]
+
+    # 2. Map each cell type to its sample columns
+    samples_by_factor = unique_sample_names.groupby("factors")["assayId"].apply(list)
+
+    # 3. Initialise a mask: all proteins initially pass
+    keep_all = pd.Series(
+        True,
+        index=Postprocessed_iBAQ.index
+    )
+
+    # 4. Apply the missing-value filter independently to each cell type
+    for factor, samples in samples_by_factor.items():
+
+        samples = [
+            sample for sample in samples
+            if sample in Postprocessed_iBAQ.columns
+        ]
+
+        if not samples:
+            continue
+
+        # Fraction of missing values within this cell type
+        missing_fraction = Postprocessed_iBAQ[samples].isna().mean(axis=1)
+
+        # AND condition: must pass in every cell type
+        # Keep only proteins that have missing values less than or equal to %age specified in ALL sample groups
+        keep_group = missing_fraction <= missingVals
+        keep_all &= keep_group
+
+    # 5. Filter the original dataframe
+    Postprocessed_iBAQ = Postprocessed_iBAQ.loc[
+        keep_all,
+        annotation_cols + original_sample_order
+    ]
+
+Postprocessed_num_of_identified_proteins = Postprocessed_iBAQ['Protein IDs'].nunique()
 
 ######################
 # Sample name to source name map table for report summary document
@@ -437,11 +486,17 @@ proteins mapped to Ensembl gene IDs and filtered results \
          ha='left', va='top', wrap=True, fontsize=12)
 plt.tight_layout()
 
-Table_caption = "* Data show in Open Targets.\n\
+missing_text = (
+    f"AND has MAXIMUM {missingVals * 100:.0f}% missing values in every assay group"
+    if missingVals > 0
+    else ""
+)
+
+Table_caption = f"* Data show in Open Targets.\n\
 ˚ The total number of protein groups found to be a commonly occurring contaminant.\n\
 ¶ Total number of entrapment proteins.\n\
 ˆ The total number of protein groups with a peptide derived from the reversed part of the decoy database.\n\
-† The total number of non-isoform SwissProt proteins within the protein group, to which at least 2 or more peptides from each sample are mapped to.\n\
+† The total number of non-isoform SwissProt proteins within the protein group, to which at least 2 or more unique peptides from each sample are mapped to {missing_text}.\n\
 ¥ Sum of peptides that are mapped across all protein groups.\n\
 ¢ The total number of protein groups which are mapped to an unique Ensembl Gene ID.\n\
 § The total number of unique peptides associated with the protein group (i.e. these peptides are not shared with another protein group)."
