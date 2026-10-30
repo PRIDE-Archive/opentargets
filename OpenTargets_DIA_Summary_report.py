@@ -30,9 +30,16 @@ base = importr("base")
 # set if differential expression or not! [1 or 0]
 # 0 for baseline and 1 for differential analysis
 diffExp = 0
+
 # set testing or not! [1 or 0]
 # 0 for full run, 1 for testing (first 50 entries)
 test = 0
+
+# set missing value filter [0 to 1]
+# missingVals = 0 to keep all proteins,
+# missingVals > 0 to keep proteins with maximum % missing values in EVERY sample group
+# example missingVals = 0.15. Keep proteins with maximum 15% missing values in EVERY sample group
+missingVals = 0
 
 def checktype():
     if diffExp == 1:
@@ -232,15 +239,13 @@ peptidecounts_each_sample.columns = ["Sample", "PeptideCount"]
 
 postfilter_number_of_PSMs = len(report_quant_submatrix)
 postfilter_number_of_unique_peptides = report_quant_submatrix["Stripped.Sequence"].nunique()
-postfilter_number_of_proteins = report_quant_submatrix["Protein.Ids"].nunique()
-postfilter_number_of_genes = report_quant_submatrix["Genes"].nunique()
 
-# new section
 # Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
 factor_cols = [col for col in SDRF.columns if col.startswith("factor value")]
 if factor_cols:
     SDRF["factors"] = SDRF[factor_cols].astype(str).agg(", ".join, axis=1)
 unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates()
+
 # Median average over technical replicate samples
 # Technical replicates have the same assay ID (PXD-Sample-**)
 rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
@@ -251,26 +256,6 @@ report_quant_submatrix = report_quant_submatrix.groupby(["Run", "Protein.Ids", "
 report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes"],
                                                            columns="Run",
                                                            values="Genes.MaxLFQ").reset_index()
-# Replaced Genes.Normalised with Genes.MaxLFQ (see above line 179)
-
-"""
-report_quant_submatrix_wide = report_quant_submatrix.pivot(index=["Protein.Ids", "Genes", "Stripped.Sequence"],
-                                                     columns="Run",
-                                                      values="Genes.Normalised").reset_index()
-
-# Replace descriptive column names (Heart 1) with Source names (PXD-Sample-1)
-factor_cols = [col for col in SDRF.columns if col.startswith("factor value")]
-if factor_cols:
-    SDRF["factors"] = SDRF[factor_cols].astype(str).agg(", ".join, axis=1)
-unique_sample_names = SDRF[['assayGroup', 'assayId', 'factors']].drop_duplicates()
-
-rename_dict = dict(zip(unique_sample_names['assayGroup'], unique_sample_names['assayId']))
-
-report_quant_submatrix_wide = report_quant_submatrix_wide.rename(columns=rename_dict)
-
-report_quant_submatrix_wide = report_quant_submatrix_wide.drop(columns=["Stripped.Sequence"])
-report_quant_submatrix_wide = report_quant_submatrix_wide.groupby(["Protein.Ids", "Genes"], as_index=False).median()
-"""
 
 # For testing
 if test == 1:
@@ -331,21 +316,67 @@ report_quant_submatrix_wide['Gene Count'] = report_quant_submatrix_wide['Gene Sy
 
 
 ############################################
+# Filters
 ############################################
-
 # Remove protein groups mapped to more than one Gene ID
 report_quant_submatrix_wide = report_quant_submatrix_wide[report_quant_submatrix_wide["Gene Count"] == 1]
 
 cols = list(report_quant_submatrix_wide.columns)
 cols.insert(2, cols.pop(cols.index("ENSG")))
-report_quant_submatrix_wide = report_quant_submatrix_wide[cols]
 
+report_quant_submatrix_wide = report_quant_submatrix_wide[cols]
 report_quant_submatrix_wide = report_quant_submatrix_wide.drop(columns=["Gene Count", "Gene Symbol"])
 
 # Sort alphabetically by Gene names
 report_quant_submatrix_wide = report_quant_submatrix_wide.sort_values(by="Genes")
 
+# Missing values filter
+if missingVals > 0:
+    # Keep only proteins that have 15% or less missing values in ALL sample groups
+    # 1. Define annotation and sample columns
+    annotation_cols = ["Protein.Ids", "Genes", "ENSG"]
 
+    original_sample_order = [
+        col for col in report_quant_submatrix_wide.columns
+        if col not in annotation_cols
+    ]
+
+    # 2. Map each cell type to its sample columns
+    samples_by_factor = unique_sample_names.groupby("factors")["assayId"].apply(list)
+
+    # 3. Initialise a mask: all proteins initially pass
+    keep_all = pd.Series(
+        True,
+        index=report_quant_submatrix_wide.index
+    )
+
+    # 4. Apply the missing-value filter independently to each cell type
+    for factor, samples in samples_by_factor.items():
+
+        samples = [
+            sample for sample in samples
+            if sample in report_quant_submatrix_wide.columns
+        ]
+
+        if not samples:
+            continue
+
+        # Fraction of missing values within this cell type
+        missing_fraction = report_quant_submatrix_wide[samples].isna().mean(axis=1)
+
+        # AND condition: must pass in every cell type
+        # Keep only proteins that have missing values less than or equal to %age specified in ALL sample groups
+        keep_group = missing_fraction <= missingVals
+        keep_all &= keep_group
+
+    # 5. Filter the original dataframe
+    report_quant_submatrix_wide = report_quant_submatrix_wide.loc[
+        keep_all,
+        annotation_cols + original_sample_order
+    ]
+
+postfilter_number_of_proteins = report_quant_submatrix_wide["Protein.Ids"].nunique()
+postfilter_number_of_genes = report_quant_submatrix_wide["Genes"].nunique()
 
 ######################
 # Sample name to source name map table for report summary document
@@ -411,11 +442,17 @@ proteins mapped to Ensembl gene IDs and filtered results \
          ha='left', va='top', wrap=True, fontsize=12)
 plt.tight_layout()
 
-Table_caption = "* Data show in Open Targets.\n\
+missing_text = (
+    f"AND has MAXIMUM {missingVals * 100:.0f}% missing values in every assay group"
+    if missingVals > 0
+    else ""
+)
+
+Table_caption = f"* Data show in Open Targets.\n\
 ˚ The total number of protein groups found to be a commonly occurring contaminant.\n\
 ¶ Total number of entrapment proteins.\n\
 ˆ The total number of protein groups with a peptide derived from the reversed part of the decoy database.\n\
-† The total number of non-isoform SwissProt proteins within the protein group, to which at least 2 or more peptides from each sample are mapped to.\n\
+† The total number of non-isoform SwissProt proteins within the protein group, to which at least 2 or more unique peptides from each sample are mapped to {missing_text}.\n\
 ¥ Sum of peptides that are mapped across all protein groups.\n\
 ¢ The total number of protein groups which are mapped to an unique Ensembl Gene ID.\n\
 § The total number of unique peptides associated with the protein group (i.e. these peptides are not shared with another protein group)."
@@ -559,8 +596,6 @@ batch_annotation.rename(columns={'assayId': 'Sample name',
 ibaq_matrix = iBAQ_quant.copy()
 iBAQ_cols = ibaq_matrix.columns[3:]
 
-#NOTE tO do: Add 15% missing values filter
-#group_mask = ibaq_matrix[cols].isna().mean(axis=1) < 0.15
 
 protein_index = (
         ibaq_matrix['ENSG'].astype('string').fillna('nan')
