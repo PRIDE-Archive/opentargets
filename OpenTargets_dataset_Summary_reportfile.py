@@ -22,6 +22,7 @@ import rpy2.robjects as ro
 import umap.umap_ as umap
 from adjustText import adjust_text
 from requests.exceptions import RequestException
+import plotly.express as px
 
 mg = mygene.MyGeneInfo()
 tqdm.pandas()
@@ -69,9 +70,9 @@ checktype()
 testing()
 
 
-path = "/Users/ananth/Documents/OpenTargets/PXD004678/OPTAR"
+path = "/Users/ananth/Documents/OpenTargets/PXD062642/OPTAR"
 # 1. Sample Metadata
-SDRF = pd.read_csv(os.path.join(path, "PXD004678.sdrf.tsv"), sep='\t', header=0)
+SDRF = pd.read_csv(os.path.join(path, "PXD062642.sdrf.tsv"), sep='\t', header=0)
 remove_samples = SDRF.loc[
                  SDRF["source name"].str.contains("Sample-XX", case=False, na=False),"assay name"
                  ].drop_duplicates()
@@ -83,11 +84,11 @@ dataset_URL = SDRF['comment[file uri]'].str.replace(r'/[^/]+$', '', regex=True).
 
 species = SDRF['characteristics[organism]'].unique().tolist()
 speciesOntURI = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-pubmedId = "27626665"
-provider = "Worah K, Mathan TS. etal."
-emailID = "edwin.lasonder@plymouth.ac.uk"
+pubmedId = "41533574"
+provider = "Mun DG, Madugundu AK. etal."
+emailID = "pandey.akhilesh@mayo.edu"
 experimentType = "Proteomics by mass spectrometry"
-quantificationMethod = "Label-free (baseline)"
+quantificationMethod = "DDA Label-free (baseline)"
 searchDatabase = "Human 'one protein per gene set' proteome (UniProt, November 2024. 20,656 sequences)"
 contaminantDatabase = "cRAP contaminants (May 2021. 245 sequences)"
 entrapmentDatabase = "Generated using method described by Wen B. etal. (PMID:40524023, 20,653 sequences)"
@@ -656,10 +657,10 @@ else:
 tmp_exp = expr_limma_corrected.copy()
 expr_limma_iBAQ = (2 ** tmp_exp) - 1
 
-expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.replace(r'\+.*', '', regex=True)
-expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ.index.str.replace(r'ENSG\d+\+', '', regex=True)
-expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ['Gene Symbol'].str.replace(r'\+.*', '', regex=True)
-expr_limma_iBAQ['Protein IDs'] = expr_limma_iBAQ.index.str.replace(r'.*\+', '', regex=True)
+expr_limma_iBAQ['Protein IDs'] = expr_limma_iBAQ.index.str.split('+').str[2]
+expr_limma_iBAQ['Gene Symbol'] = expr_limma_iBAQ.index.str.split('+').str[1]
+expr_limma_iBAQ['ENSG'] = expr_limma_iBAQ.index.str.split('+').str[0]
+
 cols = expr_limma_iBAQ.columns.tolist()
 column_reorder = cols[-3:] + cols[:-3]
 expr_limma_iBAQ = expr_limma_iBAQ[column_reorder]
@@ -871,6 +872,8 @@ def perform_UMAP(inp_expr_df):
     expr_matrix_trans = expr_matrix.T
     # change NaN to 0. UMAP does not handle NaN
     expr_matrix_trans[np.isnan(expr_matrix_trans)] = 0
+    # Log transform
+    expr_matrix_trans = np.log2(expr_matrix_trans + 1)
     # Initialize UMAP, Fit and transform
     umap_plotdata = umap.UMAP(n_components=2,
                               n_neighbors=5, #new addition
@@ -913,10 +916,41 @@ if diffExp == 0:
     ax7.set_title('UMAP')
     plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
-    Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+    Figure6_caption = "Figure 6: UMAP of log2(iBAQ) expression."
 
     fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
 
+    ## Interactive UMAP
+
+    fig6_interactive = px.scatter(
+        data_frame=umap_plotdata,
+        x="UMAP1",
+        y="UMAP2",
+        color="factors",
+        symbol="factors",
+        hover_name="assayId",
+        hover_data=["assayId", "factors", "UMAP1", "UMAP2"],
+        title="UMAP of log2(iBAQ) expression (Interactive)"
+    )
+
+    fig6_interactive.update_layout(
+        width=900,
+        height=700,
+        legend_title_text="Factors"
+    )
+
+    # Save as a standalone HTML file
+    interactive_umap_file = os.path.join(
+        optar_result_dir,
+        dataset + "_Figure6_UMAP_interactive.html"
+    )
+
+    fig6_interactive.write_html(
+        interactive_umap_file,
+        include_plotlyjs=True
+    )
+
+    print(f"Interactive UMAP saved to: {interactive_umap_file}")
 
 glossary = """
 Post-processing filters applied:
@@ -973,12 +1007,41 @@ if diffExp == 1:
     ax7.set_title('UMAP')
     plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 
-    if num_of_batches > 1:
-        Figure6_caption = "Figure 6: UMAP of limma corrected expression."
-    else:
-        Figure6_caption = "Figure 6: UMAP of iBAQ expression."
+    Figure6_caption = "Figure 6: UMAP of log2(iBAQ) expression."
 
     fig6.text(0.5, 0.02, Figure6_caption, wrap=True, horizontalalignment='center', fontsize=10)
+
+    ## Interactive UMAP
+
+    fig6_interactive = px.scatter(
+        data_frame=umap_plotdata,
+        x="UMAP1",
+        y="UMAP2",
+        color="factors",
+        symbol="factors",
+        hover_name="assayId",
+        hover_data=["assayId", "factors", "UMAP1", "UMAP2"],
+        title="UMAP of log2(iBAQ) expression (Interactive)"
+    )
+
+    fig6_interactive.update_layout(
+        width=900,
+        height=700,
+        legend_title_text="Factors"
+    )
+
+    # Save as a standalone HTML file
+    interactive_umap_file = os.path.join(
+        optar_result_dir,
+        dataset + "_Figure6_UMAP_interactive.html"
+    )
+
+    fig6_interactive.write_html(
+        interactive_umap_file,
+        include_plotlyjs=True
+    )
+
+    print(f"Interactive UMAP saved to: {interactive_umap_file}")
 
     ## Differential expression
     print("Performing differential expression analysis.")
